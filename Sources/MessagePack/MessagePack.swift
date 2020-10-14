@@ -35,6 +35,10 @@ struct FormatByte: RawRepresentable {
             default:              return 0x00
             }
         }
+
+        var rawValueRange: ClosedRange<UInt8> {
+            return self.rawValue...(self.rawValue + self.maximalValue)
+        }
     }
 
     init(format: FormatSpecifier) {
@@ -53,13 +57,15 @@ struct FormatByte: RawRepresentable {
     init?(rawValue: UInt8) {
         let format: FormatSpecifier?
         switch rawValue {
-        case 0x00...0x7f: format = .positiveFixint
-        case 0x80...0x8f: format = .fixmap
-        case 0x90...0x9f: format = .fixarray
-        case 0xa0...0xbf: format = .fixstr
-        case 0xc2...0xc3: format = .bool
-        case 0xe0...0xff: format = .negativeFixint
-        default:          format = FormatSpecifier(rawValue: rawValue)
+        case FormatSpecifier.positiveFixint.rawValueRange:
+            format = .positiveFixint
+        case FormatSpecifier.fixmap.rawValueRange:   format = .fixmap
+        case FormatSpecifier.fixarray.rawValueRange: format = .fixarray
+        case FormatSpecifier.fixstr.rawValueRange:   format = .fixstr
+        case FormatSpecifier.bool.rawValueRange:     format = .bool
+        case FormatSpecifier.negativeFixint.rawValueRange:
+            format = .negativeFixint
+        default: format = FormatSpecifier(rawValue: rawValue)
         }
         if format == nil { return nil }
         self.format = format!
