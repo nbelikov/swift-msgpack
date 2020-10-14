@@ -1,10 +1,10 @@
 import Foundation
 
 struct FormatByte: RawRepresentable {
-    let format: FormatSpecifier
+    let format: Format
     let value:  UInt8
 
-    enum FormatSpecifier: UInt8 {
+    enum Format: UInt8 {
         case positiveFixint = 0x00 // 0xxxxxxx  0x00 - 0x7f
         case fixmap         = 0x80 // 1000xxxx  0x80 - 0x8f
         case fixarray       = 0x90 // 1001xxxx  0x90 - 0x9f
@@ -41,13 +41,13 @@ struct FormatByte: RawRepresentable {
         }
     }
 
-    init(format: FormatSpecifier) {
+    init(format: Format) {
         precondition(format.maximalValue == 0)
         self.format = format
         self.value  = 0
     }
 
-    init(format: FormatSpecifier, withValue value: UInt8) {
+    init(format: Format, withValue value: UInt8) {
         precondition(format.maximalValue > 0)
         precondition(value <= format.maximalValue)
         self.format = format
@@ -55,17 +55,15 @@ struct FormatByte: RawRepresentable {
     }
 
     init?(rawValue: UInt8) {
-        let format: FormatSpecifier?
+        let format: Format?
         switch rawValue {
-        case FormatSpecifier.positiveFixint.rawValueRange:
-            format = .positiveFixint
-        case FormatSpecifier.fixmap.rawValueRange:   format = .fixmap
-        case FormatSpecifier.fixarray.rawValueRange: format = .fixarray
-        case FormatSpecifier.fixstr.rawValueRange:   format = .fixstr
-        case FormatSpecifier.bool.rawValueRange:     format = .bool
-        case FormatSpecifier.negativeFixint.rawValueRange:
-            format = .negativeFixint
-        default: format = FormatSpecifier(rawValue: rawValue)
+        case Format.positiveFixint.rawValueRange: format = .positiveFixint
+        case Format.fixmap.rawValueRange:         format = .fixmap
+        case Format.fixarray.rawValueRange:       format = .fixarray
+        case Format.fixstr.rawValueRange:         format = .fixstr
+        case Format.bool.rawValueRange:           format = .bool
+        case Format.negativeFixint.rawValueRange: format = .negativeFixint
+        default: format = Format(rawValue: rawValue)
         }
         if format == nil { return nil }
         self.format = format!
