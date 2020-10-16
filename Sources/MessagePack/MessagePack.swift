@@ -2,7 +2,7 @@ import Foundation
 
 struct FormatByte: RawRepresentable {
     let format: Format
-    let value:  UInt8
+    let value:  Int8
 
     enum Format: UInt8 {
         case positiveFixint = 0x00 // 0xxxxxxx  0x00 - 0x7f
@@ -24,38 +24,55 @@ struct FormatByte: RawRepresentable {
         case map16    = 0xde, map32   = 0xdf
         case negativeFixint = 0xe0 // 111xxxxx  0xe0 - 0xff
 
-        var maximalValue: UInt8 {
+        var hasValue: Bool {
             switch self {
-            case .positiveFixint: return 0x7f // See bit patterns above
-            case .fixmap:         return 0x0f
-            case .fixarray:       return 0x0f
-            case .fixstr:         return 0x1f
-            case .bool:           return 0x01
-            case .negativeFixint: return 0x1f
-            default:              return 0x00
+            case .positiveFixint, .fixmap, .fixarray, .fixstr, .bool,
+                .negativeFixint: return true
+            default: return false
             }
         }
 
         var rawValueRange: ClosedRange<UInt8> {
-            return self.rawValue...(self.rawValue + self.maximalValue)
+            switch self { // See bit patterns above
+            case .positiveFixint: return rawValue...0x7f
+            case .fixmap:         return rawValue...0x8f
+            case .fixarray:       return rawValue...0x9f
+            case .fixstr:         return rawValue...0xbf
+            case .bool:           return rawValue...0xc3
+            case .negativeFixint: return rawValue...0xff
+            default:              return rawValue...rawValue
+            }
+        }
+
+        var valueRange: ClosedRange<Int8> {
+            switch self {
+            case .negativeFixint:
+                // Within defined value range, rawValue is the exact bit
+                // representation of the assoviated value for two's complement
+                // 8-bit integers.
+                return Int8(bitPattern: rawValueRange.upperBound) ...
+                       Int8(bitPattern: rawValueRange.lowerBound)
+            default:
+                return 0...(Int8(rawValueRange.upperBound -
+                                 rawValueRange.lowerBound))
+            }
         }
     }
 
     init(format: Format) {
-        precondition(format.maximalValue == 0)
+        precondition(!format.hasValue)
         self.format = format
         self.value  = 0
     }
 
-    init(format: Format, withValue value: UInt8) {
-        precondition(format.maximalValue > 0)
-        precondition(value <= format.maximalValue)
+    init(format: Format, withValue value: Int8) {
+        precondition(format.hasValue)
+        precondition(format.valueRange.contains(value))
         self.format = format
         self.value  = value
     }
 
     init?(rawValue: UInt8) {
-        let format: Format?
         switch rawValue {
         case Format.positiveFixint.rawValueRange: format = .positiveFixint
         case Format.fixmap.rawValueRange:         format = .fixmap
@@ -63,14 +80,23 @@ struct FormatByte: RawRepresentable {
         case Format.fixstr.rawValueRange:         format = .fixstr
         case Format.bool.rawValueRange:           format = .bool
         case Format.negativeFixint.rawValueRange: format = .negativeFixint
-        default: format = Format(rawValue: rawValue)
+        default:
+            guard let format = Format(rawValue: rawValue) else {
+                // The only invalid value is 0xc1, anything else means a missed
+                // range.
+                assert(rawValue == 0xc1)
+                return nil
+            }
+            self.format = format
         }
-        if format == nil { return nil }
-        self.format = format!
-        self.value  = rawValue ^ format!.rawValue
+        value = format == .negativeFixint ?
+            Int8(bitPattern: rawValue) : // See Format.valueRange
+            Int8(rawValue ^ format.rawValue)
     }
 
     var rawValue: UInt8 {
-        return self.format.rawValue ^ self.value
+        return format == .negativeFixint ?
+            UInt8(bitPattern: value) : // See Format.valueRange
+            format.rawValue ^ UInt8(value)
     }
 }
