@@ -1,4 +1,224 @@
-import Foundation
+import struct Foundation.Data
+import class  Foundation.InputStream
+import class  Foundation.OutputStream
+
+public class DecodableMessage {
+    var reader: Readable
+
+    public init(fromData data: Data) {
+        self.reader = DataReader(data: data)
+    }
+
+    public convenience init(fromBytes bytes: [UInt8]) {
+        self.init(fromData: Data(bytes))
+    }
+
+    // FIXME: This recursive implementation can be easily tricked by malicious
+    // user input into exhausting stack memory by recursively nesting an array
+    // or a map deep enough.
+    public func unpackAny() throws -> Any? {
+        guard let header = try self.readHeader() else { return nil }
+        switch header {
+        case .integer(let value): return value.asAny
+        case .`nil`:              return nil
+        case .bool(let value):    return value
+        case .float(let value):   return value
+        case .double(let value):  return value
+        case .string(let length): return try self.readString(length)
+        case .binary(let length): return try self.readBytes(length)
+        case .array(let length):  return try self.readArray(length) as [Any?]
+        case .map(let length):
+            return try self.readMap(length) as [AnyHashable : Any?]
+        case .ext(let type, let length):
+            return try self.readExt(type: type, length: length)
+        }
+    }
+
+    func readHeader() throws -> Header? {
+        guard let byte = try self.readFormatByte() else { return nil }
+        let h: Header
+        switch byte.format {
+        case .positiveFixint: h = .integer(value: .int(Int(byte.value)))
+        case .fixmap:   h = .map(length:    UInt(byte.value))
+        case .fixarray: h = .array(length:  UInt(byte.value))
+        case .fixstr:   h = .string(length: UInt(byte.value))
+        case .`nil`:    h = .`nil`
+        case .bool:     h = .bool(value: byte.value != 0)
+        case .bin8, .bin16, .bin32:
+            h = .binary(length: try self.readLength(byte.format))
+        case .ext8, .ext16, .ext32:
+            // The order in which these values must be read differs from the
+            // order of properties in `.ext` initializer.
+            let length = try self.readLength(byte.format)
+            let type   = try self.readExtType()
+            h = .ext(type: type, length: length)
+        case .float32:  h = .float(value:  try self.readFloat())
+        case .float64:  h = .double(value: try self.readDouble())
+        case .uint8, .uint16, .uint32, .uint64, .int8, .int16, .int32, .int64:
+            h = .integer(value: try self.readIntValue(byte.format))
+        case .fixext1:  h = .ext(type: try self.readExtType(), length:  1)
+        case .fixext2:  h = .ext(type: try self.readExtType(), length:  2)
+        case .fixext4:  h = .ext(type: try self.readExtType(), length:  4)
+        case .fixext8:  h = .ext(type: try self.readExtType(), length:  8)
+        case .fixext16: h = .ext(type: try self.readExtType(), length: 16)
+        case .str8, .str16, .str32:
+             h = .string(length: try self.readLength(byte.format))
+        case .array16, .array32:
+             h = .array(length:  try self.readLength(byte.format))
+        case .map16, .map32:
+             h = .map(length:    try self.readLength(byte.format))
+        case .negativeFixint: h = .integer(value: .int(Int(byte.value)))
+        }
+        return h
+    }
+
+    func readFormatByte() throws -> FormatByte? {
+        guard self.reader.hasMore else { return nil }
+        let byte = try self.readInteger(as: UInt8.self)
+        guard let formatByte = FormatByte(rawValue: byte) else {
+            throw MessagePackError.invalidMessage
+        }
+        return formatByte
+    }
+
+    func readString(_ length: UInt) throws -> String { "" } // FIXME
+    func readBytes(_ length: UInt) throws -> [UInt8] { [0] } // FIXME
+    func readArray<T>(_ length: UInt) throws -> [T] { [] } // FIXME
+    func readMap<K: Hashable, V>(_ length: UInt) throws -> [K : V] {
+        [:] // FIXME
+    }
+
+    func readIntValue(_ format: FormatByte.Format) throws -> Header.IntValue {
+        var int: Header.IntValue
+        switch format {
+        case .uint8:  int = .int(Int(try   self.readInteger(as:  UInt8.self)))
+        case .uint16: int = .int(Int(try   self.readInteger(as: UInt16.self)))
+        case .uint32: int = .uInt(UInt(try self.readInteger(as: UInt32.self)))
+        case .uint64: int = .uInt64(try    self.readInteger(as: UInt64.self))
+        case .int8:   int = .int(Int(try   self.readInteger(as:   Int8.self)))
+        case .int16:  int = .int(Int(try   self.readInteger(as:  Int16.self)))
+        case .int32:  int = .int(Int(try   self.readInteger(as:  Int32.self)))
+        case .int64:  int = .int64(try     self.readInteger(as:  Int64.self))
+        default: preconditionFailure()
+        }
+        return int.normalized
+    }
+
+    func readFloat() throws -> Float {
+        Float(bitPattern: try self.readInteger(as: UInt32.self))
+    }
+
+    func readDouble() throws -> Double {
+        Double(bitPattern: try self.readInteger(as: UInt64.self))
+    }
+
+    func readExt(type: Header.ExtType, length: UInt) throws -> Any? {
+        nil // FIXME
+    }
+
+    func readExtType() throws -> Header.ExtType { .timestamp } // FIXME
+
+    func readLength(_ format: FormatByte.Format) throws -> UInt {
+        switch format {
+        case .bin8,  .ext8,  .str8:
+            return UInt(try self.readInteger(as: UInt8.self))
+        case .bin16, .ext16, .str16, .array16, .map16:
+            return UInt(try self.readInteger(as: UInt16.self))
+        case .bin32, .ext32, .str32, .array32, .map32:
+            return UInt(try self.readInteger(as: UInt32.self))
+        default: preconditionFailure()
+        }
+    }
+
+    func readInteger<T: FixedWidthInteger>(as: T.Type) throws -> T {
+        var bigEndianInt = T()
+        try self.reader.read(into: &bigEndianInt)
+        return T(bigEndian: bigEndianInt)
+    }
+}
+
+enum MessagePackError: Error {
+    case invalidMessage
+    case unexpectedEndOfMessage
+}
+
+protocol Readable {
+    mutating func read<T>(into: UnsafeMutablePointer<T>) throws
+    var hasMore: Bool { get }
+}
+
+struct DataReader: Readable {
+    var data: Data
+    var position: Data.Index = 0
+
+    mutating func read<T>(into pointer: UnsafeMutablePointer<T>) throws {
+        let size = MemoryLayout<T>.size
+        let newPosition = self.position + size
+        guard newPosition <= self.data.count else {
+            throw MessagePackError.unexpectedEndOfMessage
+        }
+        pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
+            self.data.copyBytes(to: $0, from: self.position ..< newPosition)
+        }
+        self.position = newPosition
+    }
+
+    var hasMore: Bool {
+        get { self.position < self.data.count }
+    }
+}
+
+enum Header { // FIXME better name
+    case integer(value: IntValue)
+    case `nil`
+    case bool(value: Bool)
+    case float(value: Float)
+    case double(value: Double)
+    case string(length: UInt)
+    case binary(length: UInt)
+    case array(length: UInt)
+    case map(length: UInt)
+    case ext(type: ExtType, length: UInt)
+
+    enum ExtType {
+        case timestamp // FIXME
+    }
+
+    enum IntValue {
+        case int(Int)
+        case uInt(UInt)
+        case int64(Int64)
+        case uInt64(UInt64)
+
+        // Try to use a more convenient and compact integer type
+        // UInt64 ---> Int64 ---> Int <--- UInt
+        var normalized: IntValue {
+            get {
+                switch self {
+                case .uInt(let value)   where value <= Int.max:
+                    return .int(Int(value))
+                case .int64(let value)  where value <= Int.max &&
+                                              value >= Int.min:
+                    return .int(Int(value))
+                case .uInt64(let value) where value <= Int64.max:
+                    return IntValue.int64(Int64(value)).normalized
+                default: return self
+                }
+            }
+        }
+
+        var asAny: Any {
+            get {
+                switch self {
+                case .int(let    value): return value
+                case .uInt(let   value): return value
+                case .int64(let  value): return value
+                case .uInt64(let value): return value
+                }
+            }
+        }
+    }
+}
 
 struct FormatByte: RawRepresentable {
     let format: Format
