@@ -43,7 +43,8 @@ public class DecodableMessage {
         case .fixarray: h = .array(length:  UInt(byte.value))
         case .fixstr:   h = .string(length: UInt(byte.value))
         case .`nil`:    h = .`nil`
-        case .bool:     h = .bool(value: byte.value != 0)
+        case .`false`:  h = .bool(value: false)
+        case .`true`:   h = .bool(value: true)
         case .bin8, .bin16, .bin32:
             h = .binary(length: try self.readLength(byte.format))
         case .ext8, .ext16, .ext32:
@@ -229,9 +230,9 @@ struct FormatByte: RawRepresentable {
         case fixmap         = 0x80 // 1000xxxx  0x80 - 0x8f
         case fixarray       = 0x90 // 1001xxxx  0x90 - 0x9f
         case fixstr         = 0xa0 // 101xxxxx  0xa0 - 0xbf
-        case `nil`          = 0xc0
+        case `nil`    = 0xc0
         // 0xc1 is an invalid value
-        case bool           = 0xc2 // 1100001x  0xc2 - 0xc3
+        case `false`  = 0xc2, `true`  = 0xc3
         case bin8     = 0xc4, bin16   = 0xc5, bin32   = 0xc6
         case ext8     = 0xc7, ext16   = 0xc8, ext32   = 0xc9
         case float32  = 0xca, float64 = 0xcb
@@ -246,8 +247,8 @@ struct FormatByte: RawRepresentable {
 
         var hasValue: Bool {
             switch self {
-            case .positiveFixint, .fixmap, .fixarray, .fixstr, .bool,
-                .negativeFixint: return true
+            case .positiveFixint, .fixmap, .fixarray, .fixstr, .negativeFixint:
+                return true
             default: return false
             }
         }
@@ -258,7 +259,6 @@ struct FormatByte: RawRepresentable {
             case .fixmap:         return self.rawValue ... 0x8f
             case .fixarray:       return self.rawValue ... 0x9f
             case .fixstr:         return self.rawValue ... 0xbf
-            case .bool:           return self.rawValue ... 0xc3
             case .negativeFixint: return self.rawValue ... 0xff
             default:              return self.rawValue ... self.rawValue
             }
@@ -298,7 +298,6 @@ struct FormatByte: RawRepresentable {
         case Format.fixmap.rawValueRange:         self.format = .fixmap
         case Format.fixarray.rawValueRange:       self.format = .fixarray
         case Format.fixstr.rawValueRange:         self.format = .fixstr
-        case Format.bool.rawValueRange:           self.format = .bool
         case Format.negativeFixint.rawValueRange: self.format = .negativeFixint
         default:
             guard let format = Format(rawValue: rawValue) else {
