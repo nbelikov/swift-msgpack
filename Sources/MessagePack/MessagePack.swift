@@ -145,23 +145,37 @@ enum MessagePackError: Error {
 
 protocol Readable {
     mutating func read<T>(into: UnsafeMutablePointer<T>) throws
+    mutating func readAsData(size: UInt) throws -> Data
     var hasMore: Bool { get }
 }
 
 struct DataReader: Readable {
     var data: Data
-    var position: Data.Index = 0
+    var position: Int = 0
 
     mutating func read<T>(into pointer: UnsafeMutablePointer<T>) throws {
         let size = MemoryLayout<T>.size
-        let newPosition = self.position + size
-        guard newPosition <= self.data.count else {
+        let subData = try self.readAsData(size: UInt(size))
+        pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
+            subData.copyBytes(to: $0, count: size)
+        }
+    }
+
+    mutating func readAsData(size: UInt) throws -> Data {
+        // This could overflow on 32-bit hosts:
+        //     let intSize = Int(exactly: size) else { ... }
+        //     let endPosition = self.position + intSize
+        //     guard endPosition <= self.data.count else { ... }
+        let remaining = self.data.count - self.position
+        guard size <= remaining else {
             throw MessagePackError.unexpectedEndOfMessage
         }
-        pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
-            self.data.copyBytes(to: $0, from: self.position ..< newPosition)
-        }
-        self.position = newPosition
+        // The following conversion is safe even on 32-bit hosts thanks to the
+        // check above.
+        let endPosition = self.position + Int(size)
+        let range = self.position ..< endPosition
+        self.position = endPosition
+        return data[range]
     }
 
     var hasMore: Bool {
