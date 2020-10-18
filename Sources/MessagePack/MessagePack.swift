@@ -34,13 +34,13 @@ struct FormatByte: RawRepresentable {
 
         var rawValueRange: ClosedRange<UInt8> {
             switch self { // See bit patterns above
-            case .positiveFixint: return rawValue...0x7f
-            case .fixmap:         return rawValue...0x8f
-            case .fixarray:       return rawValue...0x9f
-            case .fixstr:         return rawValue...0xbf
-            case .bool:           return rawValue...0xc3
-            case .negativeFixint: return rawValue...0xff
-            default:              return rawValue...rawValue
+            case .positiveFixint: return self.rawValue ... 0x7f
+            case .fixmap:         return self.rawValue ... 0x8f
+            case .fixarray:       return self.rawValue ... 0x9f
+            case .fixstr:         return self.rawValue ... 0xbf
+            case .bool:           return self.rawValue ... 0xc3
+            case .negativeFixint: return self.rawValue ... 0xff
+            default:              return self.rawValue ... self.rawValue
             }
         }
 
@@ -50,11 +50,11 @@ struct FormatByte: RawRepresentable {
                 // Within defined value range, rawValue is the exact bit
                 // representation of the assoviated value for two's complement
                 // 8-bit integers.
-                return Int8(bitPattern: rawValueRange.upperBound) ...
-                       Int8(bitPattern: rawValueRange.lowerBound)
+                return Int8(bitPattern: self.rawValueRange.upperBound) ...
+                       Int8(bitPattern: self.rawValueRange.lowerBound)
             default:
-                return 0...(Int8(rawValueRange.upperBound -
-                                 rawValueRange.lowerBound))
+                return 0 ... (Int8(self.rawValueRange.upperBound -
+                                   self.rawValueRange.lowerBound))
             }
         }
     }
@@ -74,12 +74,12 @@ struct FormatByte: RawRepresentable {
 
     init?(rawValue: UInt8) {
         switch rawValue {
-        case Format.positiveFixint.rawValueRange: format = .positiveFixint
-        case Format.fixmap.rawValueRange:         format = .fixmap
-        case Format.fixarray.rawValueRange:       format = .fixarray
-        case Format.fixstr.rawValueRange:         format = .fixstr
-        case Format.bool.rawValueRange:           format = .bool
-        case Format.negativeFixint.rawValueRange: format = .negativeFixint
+        case Format.positiveFixint.rawValueRange: self.format = .positiveFixint
+        case Format.fixmap.rawValueRange:         self.format = .fixmap
+        case Format.fixarray.rawValueRange:       self.format = .fixarray
+        case Format.fixstr.rawValueRange:         self.format = .fixstr
+        case Format.bool.rawValueRange:           self.format = .bool
+        case Format.negativeFixint.rawValueRange: self.format = .negativeFixint
         default:
             guard let format = Format(rawValue: rawValue) else {
                 // The only invalid value is 0xc1, anything else means a missed
@@ -89,14 +89,14 @@ struct FormatByte: RawRepresentable {
             }
             self.format = format
         }
-        value = format == .negativeFixint ?
+        self.value = self.format == .negativeFixint ?
             Int8(bitPattern: rawValue) : // See Format.valueRange
-            Int8(rawValue ^ format.rawValue)
+            Int8(rawValue ^ self.format.rawValue)
     }
 
     var rawValue: UInt8 {
-        return format == .negativeFixint ?
-            UInt8(bitPattern: value) : // See Format.valueRange
-            format.rawValue ^ UInt8(value)
+        return self.format == .negativeFixint ?
+            UInt8(bitPattern: self.value) : // See Format.valueRange
+            self.format.rawValue ^ UInt8(self.value)
     }
 }
