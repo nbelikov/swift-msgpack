@@ -82,8 +82,18 @@ public class DecodableMessage {
         return formatByte
     }
 
-    func readString(_ length: UInt) throws -> String { "" } // FIXME
-    func readBytes(_ length: UInt) throws -> [UInt8] { [0] } // FIXME
+    func readString(_ length: UInt) throws -> String {
+        let data = try self.reader.readAsData(size: length)
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw MessagePackError.invalidUtf8String
+        }
+        return string
+    }
+
+    func readBytes(_ length: UInt) throws -> [UInt8] {
+        Array(try self.reader.readAsData(size: length))
+    }
+
     func readArray<T>(_ length: UInt) throws -> [T] { [] } // FIXME
     func readMap<K: Hashable, V>(_ length: UInt) throws -> [K : V] {
         [:] // FIXME
@@ -141,6 +151,7 @@ public class DecodableMessage {
 enum MessagePackError: Error {
     case invalidMessage
     case unexpectedEndOfMessage
+    case invalidUtf8String
 }
 
 protocol Readable {
