@@ -94,7 +94,23 @@ public class DecodableMessage {
         Array(try self.reader.readAsData(size: length))
     }
 
-    func readArray<T>(_ length: UInt) throws -> [T] { [] } // FIXME
+    // FIXME: self.unpackAny() returns nil both on a `nil` value and on end of
+    // message,  so if length is bigger than actual element count, the array
+    // will contain trailing nil elements.  An error must be thrown instead.
+    func readArray(_ length: UInt) throws -> [Any?] {
+        // Don't do this:
+        //     return try (0 ..< length).map { _ in try self.unpackAny() }
+        // The implementation of Collection.map(_:) will call
+        // reserveCapacity(_:) on resulting array.  Since length is not
+        // sanitized, this would open a possibility for a memory exhaustion
+        // attack.
+        var array = [Any?]()
+        for _ in 0 ..< length {
+            array.append(try self.unpackAny())
+        }
+        return array
+    }
+
     func readMap<K: Hashable, V>(_ length: UInt) throws -> [K : V] {
         [:] // FIXME
     }
