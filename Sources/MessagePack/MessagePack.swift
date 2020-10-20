@@ -133,8 +133,26 @@ public class DecodableMessage {
         return array
     }
 
-    func readMap<K: Hashable, V>(_ length: UInt) throws -> [K : V] {
-        [:] // FIXME
+    func readMap(_ length: UInt) throws -> [AnyHashable : Any?] {
+        var map = [AnyHashable : Any?]()
+        // Don't call map.reserveCapacity(length).  See self.readArray(_:) for
+        // rationale.
+        for _ in 0 ..< length {
+            guard try self.peekHeader() != nil else {
+                throw MessagePackError.unexpectedEndOfMessage
+            }
+            guard let key = try self.unpackAny() as? AnyHashable else {
+                throw MessagePackError.invalidMapKey
+            }
+            if map.keys.contains(key) {
+                throw MessagePackError.duplicateMapKey
+            }
+            guard try self.peekHeader() != nil else {
+                throw MessagePackError.unexpectedEndOfMessage
+            }
+            map[key] = .some(try self.unpackAny())
+        }
+        return map
     }
 
     func readIntValue(_ format: FormatByte.Format) throws -> Header.IntValue {
@@ -190,6 +208,8 @@ enum MessagePackError: Error {
     case invalidMessage
     case unexpectedEndOfMessage
     case invalidUtf8String
+    case invalidMapKey
+    case duplicateMapKey
 }
 
 protocol Readable {
