@@ -5,6 +5,10 @@ import class  Foundation.OutputStream
 public class DecodableMessage {
     var reader: Readable
 
+    // This property should be directly accessed only by self.readHeader and
+    // self.peekHeader.
+    var _header: Header?
+
     public init(fromData data: Data) {
         self.reader = DataReader(data: data)
     }
@@ -13,6 +17,11 @@ public class DecodableMessage {
         self.init(fromData: Data(bytes))
     }
 
+    // FIXME: This API does not distinguish between a `nil` object and an end
+    // of message condition.  Possible fixes:
+    // * Return a special value on `nil` object
+    // * Return a special value on end of message
+    // * Throw an exception on end of message
     // FIXME: This recursive implementation can be easily tricked by malicious
     // user input into exhausting stack memory by recursively nesting an array
     // or a map deep enough.
@@ -34,7 +43,20 @@ public class DecodableMessage {
         }
     }
 
+    func peekHeader() throws -> Header? {
+        if self._header != nil {
+            return self._header
+        }
+        self._header = try self.readHeader()
+        return self._header
+    }
+
     func readHeader() throws -> Header? {
+        if self._header != nil {
+            let header = self._header!
+            self._header = nil
+            return header
+        }
         guard let byte = try self.readFormatByte() else { return nil }
         let h: Header
         switch byte.format {
@@ -94,9 +116,6 @@ public class DecodableMessage {
         Array(try self.reader.readAsData(size: length))
     }
 
-    // FIXME: self.unpackAny() returns nil both on a `nil` value and on end of
-    // message,  so if length is bigger than actual element count, the array
-    // will contain trailing nil elements.  An error must be thrown instead.
     func readArray(_ length: UInt) throws -> [Any?] {
         // Don't do this:
         //     return try (0 ..< length).map { _ in try self.unpackAny() }
@@ -106,6 +125,9 @@ public class DecodableMessage {
         // attack.
         var array = [Any?]()
         for _ in 0 ..< length {
+            guard try self.peekHeader() != nil else {
+                throw MessagePackError.unexpectedEndOfMessage
+            }
             array.append(try self.unpackAny())
         }
         return array
