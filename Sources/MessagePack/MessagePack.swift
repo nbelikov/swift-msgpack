@@ -43,6 +43,21 @@ public class DecodableMessage {
         }
     }
 
+    func unpack<T>() throws -> T? {
+        guard let header = try self.peekHeader() else {
+            throw MessagePackError.unexpectedEndOfMessage
+        }
+        if case .`nil` = header {
+            _ = try self.readHeader()
+            return nil
+        }
+        return try self.unpack() as T
+    }
+
+    func unpack<T>() throws -> T {
+        preconditionFailure()
+    }
+
     func peekHeader() throws -> Header? {
         if self._header != nil {
             return self._header
@@ -116,33 +131,36 @@ public class DecodableMessage {
         Array(try self.reader.readAsData(size: length))
     }
 
-    func readArray(_ length: UInt) throws -> [Any?] {
+    func readArray<T>(_ length: UInt) throws -> [T] {
         // Don't do this:
         //     return try (0 ..< length).map { _ in try self.unpackAny() }
         // The implementation of Collection.map(_:) will call
         // reserveCapacity(_:) on resulting array.  Since length is not
         // sanitized, this would open a possibility for a memory exhaustion
         // attack.
-        var array = [Any?]()
+        var array = [T]()
         for _ in 0 ..< length {
             guard try self.peekHeader() != nil else {
                 throw MessagePackError.unexpectedEndOfMessage
             }
-            array.append(try self.unpackAny())
+            guard let element = try self.unpackAny() as? T else {
+                throw MessagePackError.incompatibleType
+            }
+            array.append(element)
         }
         return array
     }
 
-    func readMap(_ length: UInt) throws -> [AnyHashable : Any?] {
-        var map = [AnyHashable : Any?]()
+    func readMap<K, V>(_ length: UInt) throws -> [K : V] {
+        var map = [K : V]()
         // Don't call map.reserveCapacity(length).  See self.readArray(_:) for
         // rationale.
         for _ in 0 ..< length {
             guard try self.peekHeader() != nil else {
                 throw MessagePackError.unexpectedEndOfMessage
             }
-            guard let key = try self.unpackAny() as? AnyHashable else {
-                throw MessagePackError.invalidMapKey
+            guard let key = try self.unpackAny() as? K else {
+                throw MessagePackError.incompatibleType
             }
             if map.keys.contains(key) {
                 throw MessagePackError.duplicateMapKey
@@ -150,7 +168,10 @@ public class DecodableMessage {
             guard try self.peekHeader() != nil else {
                 throw MessagePackError.unexpectedEndOfMessage
             }
-            map[key] = .some(try self.unpackAny())
+            guard let value = try self.unpackAny() as? V else {
+                throw MessagePackError.incompatibleType
+            }
+            map[key] = .some(value)
         }
         return map
     }
@@ -208,8 +229,8 @@ enum MessagePackError: Error {
     case invalidMessage
     case unexpectedEndOfMessage
     case invalidUtf8String
-    case invalidMapKey
     case duplicateMapKey
+    case incompatibleType
 }
 
 protocol Readable {
