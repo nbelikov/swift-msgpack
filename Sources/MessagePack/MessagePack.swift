@@ -2,7 +2,7 @@ import struct Foundation.Data
 import class  Foundation.InputStream
 import class  Foundation.OutputStream
 
-public class DecodableMessage {
+public class UnpackableMessage {
     var reader: Readable
 
     // This property should be directly accessed only by self.readHeader and
