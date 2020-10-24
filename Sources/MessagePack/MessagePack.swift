@@ -4,6 +4,7 @@ enum MessagePackError: Error {
     case invalidUtf8String
     case duplicateMapKey
     case incompatibleType
+    case objectTooBig
 }
 
 public enum MessagePackType {
@@ -94,13 +95,13 @@ struct FormatByte: RawRepresentable {
         }
     }
 
-    init(format: Format) {
+    init(_ format: Format) {
         precondition(!format.hasValue)
         self.format = format
         self.value  = 0
     }
 
-    init(format: Format, withValue value: Int8) {
+    init(_ format: Format, withValue value: Int8) {
         precondition(format.hasValue)
         precondition(format.valueRange.contains(value))
         self.format = format

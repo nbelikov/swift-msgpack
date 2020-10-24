@@ -1,6 +1,6 @@
 public protocol MessagePackCompatible {
     init(unpackFrom: UnpackableMessage) throws
-    // func pack(to: PackableMessage) throws
+    func pack(to: PackableMessage) throws
 }
 
 extension Optional: MessagePackCompatible
@@ -11,6 +11,13 @@ where Wrapped: MessagePackCompatible {
             self = .none
         } else {
             self = .some(try message.unpack())
+        }
+    }
+
+    public func pack(to message: PackableMessage) throws {
+        switch self {
+        case .none:              try message.writeFormatByte(.`nil`)
+        case .some(let wrapped): try message.pack(wrapped)
         }
     }
 }
@@ -24,6 +31,10 @@ extension Bool: MessagePackCompatible {
         default:       throw MessagePackError.incompatibleType
         }
     }
+
+    public func pack(to message: PackableMessage) throws {
+        try message.writeFormatByte(self ? .`true` : .`false`)
+    }
 }
 
 extension Double: MessagePackCompatible {
@@ -34,6 +45,11 @@ extension Double: MessagePackCompatible {
         }
         self.init(bitPattern: try message.readInteger(as: UInt64.self))
     }
+
+    public func pack(to message: PackableMessage) throws {
+        try message.writeFormatByte(.float64)
+        try message.writeInteger(self.bitPattern)
+    }
 }
 
 extension Float: MessagePackCompatible {
@@ -43,6 +59,11 @@ extension Float: MessagePackCompatible {
             throw MessagePackError.incompatibleType
         }
         self.init(bitPattern: try message.readInteger(as: UInt32.self))
+    }
+
+    public func pack(to message: PackableMessage) throws {
+        try message.writeFormatByte(.float32)
+        try message.writeInteger(self.bitPattern)
     }
 }
 
@@ -86,6 +107,39 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
         if result == nil { throw MessagePackError.incompatibleType }
         self.init(result!)
     }
+
+    public func pack(to message: PackableMessage) throws {
+        if let int8 = Int8(exactly: self) {
+            switch int8 {
+            case FormatByte.Format.positiveFixint.valueRange:
+                try message.writeFormatByte(.positiveFixint, withValue: int8)
+            case FormatByte.Format.negativeFixint.valueRange:
+                try message.writeFormatByte(.negativeFixint, withValue: int8)
+            default:
+                try self.write(to: message, format: .int8, value: int8)
+            }
+        } else if let uint8  = UInt8(exactly: self) {
+            try self.write(to: message, format: .uint8,  value: uint8)
+        } else if let int16  = UInt16(exactly: self) {
+            try self.write(to: message, format: .int16,  value: int16)
+        } else if let uint16 = UInt16(exactly: self) {
+            try self.write(to: message, format: .uint16, value: uint16)
+        } else if let int32  = UInt32(exactly: self) {
+            try self.write(to: message, format: .int32,  value: int32)
+        } else if let uint32 = UInt32(exactly: self) {
+            try self.write(to: message, format: .uint32, value: uint32)
+        } else if let int64  = UInt64(exactly: self) {
+            try self.write(to: message, format: .int64,  value: int64)
+        } else if let uint64 = UInt64(exactly: self) {
+            try self.write(to: message, format: .uint64, value: uint64)
+        }
+    }
+
+    func write<T: FixedWidthInteger>(to message: PackableMessage,
+        format: FormatByte.Format, value: T) throws {
+        try message.writeFormatByte(format)
+        try message.writeInteger(value)
+    }
 }
 
 extension String: MessagePackCompatible {
@@ -100,6 +154,13 @@ extension String: MessagePackCompatible {
             throw MessagePackError.invalidUtf8String
         }
         self = string
+    }
+
+    public func pack(to message: PackableMessage) throws {
+        guard let data = self.data(using: .utf8) else {
+            throw MessagePackError.invalidUtf8String
+        }
+        try message.writer.write(data: data)
     }
 }
 
@@ -119,6 +180,13 @@ extension Array: MessagePackCompatible where Element: MessagePackCompatible {
         self.init()
         for _ in 0 ..< length {
             self.append(try message.unpack())
+        }
+    }
+
+    public func pack(to message: PackableMessage) throws {
+        try message.writeHeader(forType: .array, length: UInt(self.count))
+        for element in self {
+            try message.pack(element)
         }
     }
 }
@@ -141,6 +209,14 @@ where Key: MessagePackCompatible, Value: MessagePackCompatible {
             if self.updateValue(value, forKey: key) != nil {
                 throw MessagePackError.duplicateMapKey
             }
+        }
+    }
+
+    public func pack(to message: PackableMessage) throws {
+        try message.writeHeader(forType: .array, length: UInt(self.count))
+        for (key, value) in self {
+            try message.pack(key)
+            try message.pack(value)
         }
     }
 }
