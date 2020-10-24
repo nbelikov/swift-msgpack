@@ -47,8 +47,7 @@ extension Double: MessagePackCompatible {
     }
 
     public func pack(to message: PackableMessage) throws {
-        try message.writeFormatByte(.float64)
-        try message.writeInteger(self.bitPattern)
+        try message.writeFormatAndInteger(.float64, self.bitPattern)
     }
 }
 
@@ -62,8 +61,7 @@ extension Float: MessagePackCompatible {
     }
 
     public func pack(to message: PackableMessage) throws {
-        try message.writeFormatByte(.float32)
-        try message.writeInteger(self.bitPattern)
+        try message.writeFormatAndInteger(.float32, self.bitPattern)
     }
 }
 
@@ -116,29 +114,23 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
             case FormatByte.Format.negativeFixint.valueRange:
                 try message.writeFormatByte(.negativeFixint, withValue: int8)
             default:
-                try self.write(to: message, format: .int8, value: int8)
+                try message.writeFormatAndInteger(.int8, int8)
             }
         } else if let uint8  = UInt8(exactly: self) {
-            try self.write(to: message, format: .uint8,  value: uint8)
+            try message.writeFormatAndInteger(.uint8,  uint8)
         } else if let int16  = UInt16(exactly: self) {
-            try self.write(to: message, format: .int16,  value: int16)
+            try message.writeFormatAndInteger(.int16,  int16)
         } else if let uint16 = UInt16(exactly: self) {
-            try self.write(to: message, format: .uint16, value: uint16)
+            try message.writeFormatAndInteger(.uint16, uint16)
         } else if let int32  = UInt32(exactly: self) {
-            try self.write(to: message, format: .int32,  value: int32)
+            try message.writeFormatAndInteger(.int32,  int32)
         } else if let uint32 = UInt32(exactly: self) {
-            try self.write(to: message, format: .uint32, value: uint32)
+            try message.writeFormatAndInteger(.uint32, uint32)
         } else if let int64  = UInt64(exactly: self) {
-            try self.write(to: message, format: .int64,  value: int64)
+            try message.writeFormatAndInteger(.int64,  int64)
         } else if let uint64 = UInt64(exactly: self) {
-            try self.write(to: message, format: .uint64, value: uint64)
+            try message.writeFormatAndInteger(.uint64, uint64)
         }
-    }
-
-    func write<T: FixedWidthInteger>(to message: PackableMessage,
-        format: FormatByte.Format, value: T) throws {
-        try message.writeFormatByte(format)
-        try message.writeInteger(value)
     }
 }
 

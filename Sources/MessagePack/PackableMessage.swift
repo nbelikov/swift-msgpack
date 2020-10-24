@@ -33,14 +33,11 @@ public class PackableMessage {
         }
         switch length {
         case 0 ... UInt(UInt8.max) where formats[0] != nil:
-            try self.writeFormatByte(formats[0]!)
-            try self.writeInteger(UInt8(length))
+            try self.writeFormatAndInteger(formats[0]!, UInt8(length))
         case 0 ... UInt(UInt16.max):
-            try self.writeFormatByte(formats[1]!)
-            try self.writeInteger(UInt16(length))
+            try self.writeFormatAndInteger(formats[1]!, UInt16(length))
         default:
-            try self.writeFormatByte(formats[2]!)
-            try self.writeInteger(UInt32(length))
+            try self.writeFormatAndInteger(formats[2]!, UInt32(length))
         }
     }
 
@@ -61,6 +58,12 @@ public class PackableMessage {
         case (.`extension`, 16): return FormatByte(.fixext16)
         default: return nil
         }
+    }
+
+    func writeFormatAndInteger<T: FixedWidthInteger>(
+        _ format: FormatByte.Format, _ value: T) throws {
+        try self.writeFormatByte(format)
+        try self.writeInteger(value)
     }
 
     func writeFormatByte(_ format: FormatByte.Format) throws {
