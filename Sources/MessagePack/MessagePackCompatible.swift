@@ -159,21 +159,10 @@ extension String: MessagePackCompatible {
 
 extension Array: MessagePackCompatible where Element: MessagePackCompatible {
     public init(unpackFrom message: UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        guard MessagePackType(formatByte) == .array else {
-            throw MessagePackError.incompatibleType
-        }
-        let length = try message.readLength(formatByte)
-        // Don't do this:
-        //     self = try (0 ..< length).map { try message.unpack() }
-        // The implementation of Collection.map(_:) will call
-        // reserveCapacity(_:) on resulting array.  Since length is not
-        // sanitized, this would open a possibility for a memory exhaustion
-        // attack.
-        self.init()
-        for _ in 0 ..< length {
-            self.append(try message.unpack())
-        }
+        // FIXME: This is dumb.  UnpackableMessage.unpack() calls
+        // Array.init(unpackFrom:) which in turn calls
+        // UnpackableMessage.readArray(readElement:).
+        self = try message.readArray() { try message.unpack() }
     }
 
     public func pack(to message: PackableMessage) throws {

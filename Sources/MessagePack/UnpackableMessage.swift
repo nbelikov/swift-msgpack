@@ -88,7 +88,26 @@ public class UnpackableMessage {
     }
 
     func unpackAnyArray() throws -> [Any?] {
-        return [] // FIXME
+        try readArray() { try self.unpackAny() }
+    }
+
+    func readArray<T>(readElement: () throws -> T) throws -> [T] {
+        let formatByte = try self.readFormatByte()
+        guard MessagePackType(formatByte) == .array else {
+            throw MessagePackError.incompatibleType
+        }
+        let length = try self.readLength(formatByte)
+        // Don't do this:
+        //     self = try (0 ..< length).map { try message.unpack() }
+        // The implementation of Collection.map(_:) will call
+        // reserveCapacity(_:) on resulting array.  Since length is not
+        // sanitized, this would open a possibility for a memory exhaustion
+        // attack.
+        var array = [T]()
+        for _ in 0 ..< length {
+            array.append(try readElement())
+        }
+        return array
     }
 
     func unpackAnyMap() throws -> [AnyHashable : Any?] {
