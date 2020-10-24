@@ -160,6 +160,7 @@ extension String: MessagePackCompatible {
         guard let data = self.data(using: .utf8) else {
             throw MessagePackError.invalidUtf8String
         }
+        try message.writeHeader(forType: .string, length: UInt(data.count))
         try message.writer.write(data: data)
     }
 }
