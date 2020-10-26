@@ -27,416 +27,358 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+import struct Foundation.Data
+
+let nilData = Dataset<Int?>([
+    // 10.nil.yaml:
+    (nil, [
+        "c0",
+    ]),
+])
+
+let boolData = Dataset([
+    // 11.bool.yaml:
+    (false, [
+        "c2",
+    ]),
+
+    (true, [
+        "c3",
+    ]),
+])
+
+let binaryData = Dataset([
+    // 12.binary.yaml:
+    (Data(), [ // [] - empty
+        "c4-00",
+        "c5-00-00",
+        "c6-00-00-00-00",
+    ]),
+
+    (Data([0x01]), [ // [1]
+        "c4-01-01",
+        "c5-00-01-01",
+        "c6-00-00-00-01-01",
+    ]),
+
+    (Data([0x00, 0xff]), [ // [0, 255]
+        "c4-02-00-ff",
+        "c5-00-02-00-ff",
+        "c6-00-00-00-02-00-ff",
+    ]),
+])
+
+// NOTE: float32 and float64 formats are commented out for positiveIntData and
+// negativeIntData since this implementation doesn't allow implicit conversions
+// between floating point and integral values.
+// NOTE: The contents of 23.number-bignum.yaml are split and appended to
+// positiveIntData and negativeIntData datasets since the test runner would
+// process 64-bit integer data exactly the same way as it would with 32-bit.
+
+let positiveIntData = Dataset<UInt64>([
+    // 20.number-positive.yaml:
+    (0, [ // 0x0000
+        "00",                          // 0 ... 127
+        "cc-00",                       // unsigned int8
+        "cd-00-00",                    // unsigned int16
+        "ce-00-00-00-00",              // unsigned int32
+        "cf-00-00-00-00-00-00-00-00",  // unsigned int64
+        "d0-00",                       // signed int8
+        "d1-00-00",                    // signed int16
+        "d2-00-00-00-00",              // signed int32
+        "d3-00-00-00-00-00-00-00-00",  // signed int64
+        // "ca-00-00-00-00",              // float
+        // "cb-00-00-00-00-00-00-00-00",  // double
+    ]),
+
+    (1, [ // 0x0001
+        "01",
+        "cc-01",
+        "cd-00-01",
+        "ce-00-00-00-01",
+        "cf-00-00-00-00-00-00-00-01",
+        "d0-01",
+        "d1-00-01",
+        "d2-00-00-00-01",
+        "d3-00-00-00-00-00-00-00-01",
+        // "ca-3f-80-00-00",
+        // "cb-3f-f0-00-00-00-00-00-00",
+    ]),
+
+    (127, [ // 0x007F
+        "7f",
+        "cc-7f",
+        "cd-00-7f",
+        "ce-00-00-00-7f",
+        "cf-00-00-00-00-00-00-00-7f",
+        "d0-7f",
+        "d1-00-7f",
+        "d2-00-00-00-7f",
+        "d3-00-00-00-00-00-00-00-7f",
+    ]),
+
+    (128, [ // 0x0080
+        "cc-80",
+        "cd-00-80",
+        "ce-00-00-00-80",
+        "cf-00-00-00-00-00-00-00-80",
+        "d1-00-80",
+        "d2-00-00-00-80",
+        "d3-00-00-00-00-00-00-00-80",
+    ]),
+
+    (255, [ // 0x00FF
+        "cc-ff",
+        "cd-00-ff",
+        "ce-00-00-00-ff",
+        "cf-00-00-00-00-00-00-00-ff",
+        "d1-00-ff",
+        "d2-00-00-00-ff",
+        "d3-00-00-00-00-00-00-00-ff",
+    ]),
+
+    (256, [ // 0x0100
+        "cd-01-00",
+        "ce-00-00-01-00",
+        "cf-00-00-00-00-00-00-01-00",
+        "d1-01-00",
+        "d2-00-00-01-00",
+        "d3-00-00-00-00-00-00-01-00",
+    ]),
+
+    (65535, [ // 0xFFFF
+        "cd-ff-ff",
+        "ce-00-00-ff-ff",
+        "cf-00-00-00-00-00-00-ff-ff",
+        "d2-00-00-ff-ff",
+        "d3-00-00-00-00-00-00-ff-ff",
+    ]),
+
+    (65536, [ // 0x000100000
+        "ce-00-01-00-00",
+        "cf-00-00-00-00-00-01-00-00",
+        "d2-00-01-00-00",
+        "d3-00-00-00-00-00-01-00-00",
+    ]),
+
+    (2147483647, [ // 0x7FFFFFFF
+        "ce-7f-ff-ff-ff",
+        "cf-00-00-00-00-7f-ff-ff-ff",
+        "d2-7f-ff-ff-ff",
+        "d3-00-00-00-00-7f-ff-ff-ff",
+    ]),
+
+    (2147483648, [ // 0x80000000
+        "ce-80-00-00-00",              // unsigned int32
+        "cf-00-00-00-00-80-00-00-00",  // unsigned int64
+        "d3-00-00-00-00-80-00-00-00",  // signed int64
+        // "ca-4f-00-00-00",              // float
+        // "cb-41-e0-00-00-00-00-00-00",  // double
+    ]),
+
+    (4294967295, [ // 0xFFFFFFFF
+        "ce-ff-ff-ff-ff",
+        "cf-00-00-00-00-ff-ff-ff-ff",
+        "d3-00-00-00-00-ff-ff-ff-ff",
+        // "cb-41-ef-ff-ff-ff-e0-00-00",
+    ]),
+
+    // 23.number-bignum.yaml:
+    (4294967296, [ // +0x0000000100000000
+        "cf-00-00-00-01-00-00-00-00",  // unsigned int64
+        "d3-00-00-00-01-00-00-00-00",  // signed int64
+        // "ca-4f-80-00-00",              // float
+        // "cb-41-f0-00-00-00-00-00-00",  // double
+    ]),
+
+    (281474976710656, [ // +0x0001000000000000
+        "cf-00-01-00-00-00-00-00-00",  // unsigned int64
+        "d3-00-01-00-00-00-00-00-00",  // signed int64
+        // "ca-57-80-00-00",              // float
+        // "cb-42-f0-00-00-00-00-00-00",  // double
+    ]),
+
+    (9223372036854775807, [ // +0x7FFFFFFFFFFFFFFF
+        "d3-7f-ff-ff-ff-ff-ff-ff-ff",  // signed int64
+        "cf-7f-ff-ff-ff-ff-ff-ff-ff",  // unsigned int64
+    ]),
+
+    (9223372036854775808, [ // +0x8000000000000000
+        "cf-80-00-00-00-00-00-00-00",  // unsigned int64
+    ]),
+
+    (18446744073709551615, [ // +0xFFFFFFFFFFFFFFFF
+        "cf-ff-ff-ff-ff-ff-ff-ff-ff",  // unsigned int64
+    ]),
+])
+
+let negativeIntData = Dataset<Int64>([
+    // 21.number-negative.yaml:
+    (-1, [ // 0xFFFFFFFF
+        "ff",                          // -1 ... -32
+        "d0-ff",                       // signed int8
+        "d1-ff-ff",                    // signed int16
+        "d2-ff-ff-ff-ff",              // signed int32
+        "d3-ff-ff-ff-ff-ff-ff-ff-ff",  // signed int64
+        // "ca-bf-80-00-00",              // float
+        // "cb-bf-f0-00-00-00-00-00-00",  // double
+    ]),
+
+    (-32, [ // 0xFFFFFFE0
+        "e0",
+        "d0-e0",
+        "d1-ff-e0",
+        "d2-ff-ff-ff-e0",
+        "d3-ff-ff-ff-ff-ff-ff-ff-e0",
+        // "ca-c2-00-00-00",
+        // "cb-c0-40-00-00-00-00-00-00",
+    ]),
+
+    (-33, [ // 0xFFFFFFDF
+        "d0-df",
+        "d1-ff-df",
+        "d2-ff-ff-ff-df",
+        "d3-ff-ff-ff-ff-ff-ff-ff-df",
+    ]),
+
+    (-128, [ // 0xFFFFFF80
+        "d0-80",
+        "d1-ff-80",
+        "d2-ff-ff-ff-80",
+        "d3-ff-ff-ff-ff-ff-ff-ff-80",
+    ]),
+
+    (-256, [ // 0xFFFFFF00
+        "d1-ff-00",
+        "d2-ff-ff-ff-00",
+        "d3-ff-ff-ff-ff-ff-ff-ff-00",
+    ]),
+
+    (-32768, [ // 0xFFFF8000
+        "d1-80-00",
+        "d2-ff-ff-80-00",
+        "d3-ff-ff-ff-ff-ff-ff-80-00",
+    ]),
+
+    (-65536, [ // 0xFFFF0000
+        "d2-ff-ff-00-00",
+        "d3-ff-ff-ff-ff-ff-ff-00-00",
+    ]),
+
+    (-2147483648, [ // 0x80000000
+        "d2-80-00-00-00",
+        "d3-ff-ff-ff-ff-80-00-00-00",
+        // "cb-c1-e0-00-00-00-00-00-00",
+    ]),
+
+    // 23.number-bignum.yaml:
+    (-4294967296, [ // -0x0000000100000000
+        "d3-ff-ff-ff-ff-00-00-00-00",  // signed int64
+        // "cb-c1-f0-00-00-00-00-00-00",  // double
+    ]),
+
+    (-281474976710656, [ // -0x0001000000000000
+        "d3-ff-ff-00-00-00-00-00-00",  // signed int64
+        // "ca-d7-80-00-00",              // float
+        // "cb-c2-f0-00-00-00-00-00-00",  // double
+    ]),
+
+    (-9223372036854775807, [ // -0x7FFFFFFFFFFFFFFF
+        "d3-80-00-00-00-00-00-00-01",  // signed int64
+    ]),
+
+    (-9223372036854775808, [ // -0x8000000000000000
+        "d3-80-00-00-00-00-00-00-00",  // signed int64
+    ]),
+])
+
+let floatData = Dataset<Float>([
+    // 22.number-float.yaml:
+    (0.5, [
+        "ca-3f-00-00-00",
+        "cb-3f-e0-00-00-00-00-00-00",
+    ]),
+
+    (-0.5, [
+        "ca-bf-00-00-00",
+        "cb-bf-e0-00-00-00-00-00-00",
+    ]),
+])
+
+// NOTE: The contents of 30.string-ascii.yaml, 31.string-utf8.yaml and
+// 32.string-emoji.yaml are combined into a single dataset.
+
+let stringData = Dataset([
+    // 30.string-ascii.yaml:
+    ("", [ // empty string
+        "a0",
+        "d9-00",
+        "da-00-00",
+        "db-00-00-00-00",
+    ]),
+
+    ("a", [
+        "a1-61",
+        "d9-01-61",
+        "da-00-01-61",
+        "db-00-00-00-01-61",
+    ]),
+
+    ("1234567890123456789012345678901", [
+        "bf-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31-" +
+        "32-33-34-35-36-37-38-39-30-31",
+        "d9-1f-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-" +
+        "31-32-33-34-35-36-37-38-39-30-31",
+        "da-00-1f-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-" +
+        "30-31-32-33-34-35-36-37-38-39-30-31",
+    ]),
+
+    ("12345678901234567890123456789012", [
+        "d9-20-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-" +
+        "31-32-33-34-35-36-37-38-39-30-31-32",
+        "da-00-20-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-" +
+        "30-31-32-33-34-35-36-37-38-39-30-31-32",
+    ]),
+
+    // 31.string-utf8.yaml:
+    ("Кириллица", [ // Russian Cyrillic alphabet
+        "b2-d0-9a-d0-b8-d1-80-d0-b8-d0-bb-d0-bb-d0-b8-d1-86-d0-b0",
+        "d9-12-d0-9a-d0-b8-d1-80-d0-b8-d0-bb-d0-bb-d0-b8-d1-86-d0-b0",
+    ]),
+
+    ("ひらがな", [ // Japanese Hiragana character
+        "ac-e3-81-b2-e3-82-89-e3-81-8c-e3-81-aa",
+        "d9-0c-e3-81-b2-e3-82-89-e3-81-8c-e3-81-aa",
+    ]),
+
+    ("한글", [ // Korean Hangul character
+        "a6-ed-95-9c-ea-b8-80",
+        "d9-06-ed-95-9c-ea-b8-80",
+    ]),
+
+    ("汉字", [ // Simplified Chinese character
+        "a6-e6-b1-89-e5-ad-97",
+        "d9-06-e6-b1-89-e5-ad-97",
+    ]),
+
+    ("漢字", [ // Traditional Chinese character
+        "a6-e6-bc-a2-e5-ad-97",
+        "d9-06-e6-bc-a2-e5-ad-97",
+    ]),
+
+    // 32.string-emoji.yaml:
+    ("❤", [ // U+2764 HEAVY BLACK HEART
+        "a3-e2-9d-a4",
+        "d9-03-e2-9d-a4",
+    ]),
+
+    ("🍺", [ // U+1F37A BEER MUG
+        "a4-f0-9f-8d-ba",
+        "d9-04-f0-9f-8d-ba",
+    ]),
+])
+
 /*
-# 10.nil.yaml:
-
-# nil
-
-# nil
-- nil: null
-  msgpack:
-    - "c0"
-
-# 11.bool.yaml:
-
-# bool
-
-# false
-- bool: false
-  msgpack:
-    - "c2"
-
-# true
-- bool: true
-  msgpack:
-    - "c3"
-
-# 12.binary.yaml:
-
-# binary
-
-# [] // empty
-- binary: ""
-  msgpack:
-    - "c4-00"
-    - "c5-00-00"
-    - "c6-00-00-00-00"
-
-# [1]
-- binary: "01"
-  msgpack:
-    - "c4-01-01"
-    - "c5-00-01-01"
-    - "c6-00-00-00-01-01"
-
-# [0, 255]
-- binary: "00-ff"
-  msgpack:
-    - "c4-02-00-ff"
-    - "c5-00-02-00-ff"
-    - "c6-00-00-00-02-00-ff"
-
-# 20.number-positive.yaml:
-
-# number-positive
-#
-# unsigned 32bit integer
-
-# 0x0000
-- number: 0
-  msgpack:
-    - "00"                          # 0 ... 127
-    - "cc-00"                       # unsigned int8
-    - "cd-00-00"                    # unsigned int16
-    - "ce-00-00-00-00"              # unsigned int32
-    - "cf-00-00-00-00-00-00-00-00"  # unsigned int64
-    - "d0-00"                       # signed int8
-    - "d1-00-00"                    # signed int16
-    - "d2-00-00-00-00"              # signed int32
-    - "d3-00-00-00-00-00-00-00-00"  # signed int64
-    - "ca-00-00-00-00"              # float
-    - "cb-00-00-00-00-00-00-00-00"  # double
-
-# 0x0001
-- number: 1
-  msgpack:
-    - "01"
-    - "cc-01"
-    - "cd-00-01"
-    - "ce-00-00-00-01"
-    - "cf-00-00-00-00-00-00-00-01"
-    - "d0-01"
-    - "d1-00-01"
-    - "d2-00-00-00-01"
-    - "d3-00-00-00-00-00-00-00-01"
-    - "ca-3f-80-00-00"
-    - "cb-3f-f0-00-00-00-00-00-00"
-
-# 0x007F
-- number: 127
-  msgpack:
-    - "7f"
-    - "cc-7f"
-    - "cd-00-7f"
-    - "ce-00-00-00-7f"
-    - "cf-00-00-00-00-00-00-00-7f"
-    - "d0-7f"
-    - "d1-00-7f"
-    - "d2-00-00-00-7f"
-    - "d3-00-00-00-00-00-00-00-7f"
-
-# 0x0080
-- number: 128
-  msgpack:
-    - "cc-80"
-    - "cd-00-80"
-    - "ce-00-00-00-80"
-    - "cf-00-00-00-00-00-00-00-80"
-    - "d1-00-80"
-    - "d2-00-00-00-80"
-    - "d3-00-00-00-00-00-00-00-80"
-
-# 0x00FF
-- number: 255
-  msgpack:
-    - "cc-ff"
-    - "cd-00-ff"
-    - "ce-00-00-00-ff"
-    - "cf-00-00-00-00-00-00-00-ff"
-    - "d1-00-ff"
-    - "d2-00-00-00-ff"
-    - "d3-00-00-00-00-00-00-00-ff"
-
-# 0x0100
-- number: 256
-  msgpack:
-    - "cd-01-00"
-    - "ce-00-00-01-00"
-    - "cf-00-00-00-00-00-00-01-00"
-    - "d1-01-00"
-    - "d2-00-00-01-00"
-    - "d3-00-00-00-00-00-00-01-00"
-
-# 0xFFFF
-- number: 65535
-  msgpack:
-    - "cd-ff-ff"
-    - "ce-00-00-ff-ff"
-    - "cf-00-00-00-00-00-00-ff-ff"
-    - "d2-00-00-ff-ff"
-    - "d3-00-00-00-00-00-00-ff-ff"
-
-# 0x000100000
-- number: 65536
-  msgpack:
-    - "ce-00-01-00-00"
-    - "cf-00-00-00-00-00-01-00-00"
-    - "d2-00-01-00-00"
-    - "d3-00-00-00-00-00-01-00-00"
-
-# 0x7FFFFFFF
-- number: 2147483647
-  msgpack:
-    - "ce-7f-ff-ff-ff"
-    - "cf-00-00-00-00-7f-ff-ff-ff"
-    - "d2-7f-ff-ff-ff"
-    - "d3-00-00-00-00-7f-ff-ff-ff"
-
-# 0x80000000
-- number: 2147483648
-  msgpack:
-    - "ce-80-00-00-00"              # unsigned int32
-    - "cf-00-00-00-00-80-00-00-00"  # unsigned int64
-    - "d3-00-00-00-00-80-00-00-00"  # signed int64
-    - "ca-4f-00-00-00"              # float
-    - "cb-41-e0-00-00-00-00-00-00"  # double
-
-# 0xFFFFFFFF
-- number: 4294967295
-  msgpack:
-    - "ce-ff-ff-ff-ff"
-    - "cf-00-00-00-00-ff-ff-ff-ff"
-    - "d3-00-00-00-00-ff-ff-ff-ff"
-    - "cb-41-ef-ff-ff-ff-e0-00-00"
-
-# 21.number-negative.yaml:
-
-# number-negative
-#
-# signed 32bit integer
-
-# 0xFFFFFFFF
-- number: -1
-  msgpack:
-    - "ff"                          # -1 ... -32
-    - "d0-ff"                       # signed int8
-    - "d1-ff-ff"                    # signed int16
-    - "d2-ff-ff-ff-ff"              # signed int32
-    - "d3-ff-ff-ff-ff-ff-ff-ff-ff"  # signed int64
-    - "ca-bf-80-00-00"              # float
-    - "cb-bf-f0-00-00-00-00-00-00"  # double
-
-# 0xFFFFFFE0
-- number: -32
-  msgpack:
-    - "e0"
-    - "d0-e0"
-    - "d1-ff-e0"
-    - "d2-ff-ff-ff-e0"
-    - "d3-ff-ff-ff-ff-ff-ff-ff-e0"
-    - "ca-c2-00-00-00"
-    - "cb-c0-40-00-00-00-00-00-00"
-
-# 0xFFFFFFDF
-- number: -33
-  msgpack:
-    - "d0-df"
-    - "d1-ff-df"
-    - "d2-ff-ff-ff-df"
-    - "d3-ff-ff-ff-ff-ff-ff-ff-df"
-
-# 0xFFFFFF80
-- number: -128
-  msgpack:
-    - "d0-80"
-    - "d1-ff-80"
-    - "d2-ff-ff-ff-80"
-    - "d3-ff-ff-ff-ff-ff-ff-ff-80"
-
-# 0xFFFFFF00
-- number: -256
-  msgpack:
-    - "d1-ff-00"
-    - "d2-ff-ff-ff-00"
-    - "d3-ff-ff-ff-ff-ff-ff-ff-00"
-
-# 0xFFFF8000
-- number: -32768
-  msgpack:
-    - "d1-80-00"
-    - "d2-ff-ff-80-00"
-    - "d3-ff-ff-ff-ff-ff-ff-80-00"
-
-# 0xFFFF0000
-- number: -65536
-  msgpack:
-    - "d2-ff-ff-00-00"
-    - "d3-ff-ff-ff-ff-ff-ff-00-00"
-
-# 0x80000000
-- number: -2147483648
-  msgpack:
-    - "d2-80-00-00-00"
-    - "d3-ff-ff-ff-ff-80-00-00-00"
-    - "cb-c1-e0-00-00-00-00-00-00"
-
-# 22.number-float.yaml:
-
-# number-float
-#
-# decimal fraction
-
-# +0.5
-- number: 0.5
-  msgpack:
-    - "ca-3f-00-00-00"
-    - "cb-3f-e0-00-00-00-00-00-00"
-
-# -0.5
-- number: -0.5
-  msgpack:
-    - "ca-bf-00-00-00"
-    - "cb-bf-e0-00-00-00-00-00-00"
-
-# 23.number-bignum.yaml:
-
-# number-bignum
-#
-# 64bit integer
-
-# +0x0000000100000000 = +4294967296
-- number: 4294967296
-  bignum: "4294967296"
-  msgpack:
-    - "cf-00-00-00-01-00-00-00-00"  # unsigned int64
-    - "d3-00-00-00-01-00-00-00-00"  # signed int64
-    - "ca-4f-80-00-00"              # float
-    - "cb-41-f0-00-00-00-00-00-00"  # double
-
-# -0x0000000100000000 = -4294967296
-- number: -4294967296
-  bignum: "-4294967296"
-  msgpack:
-    - "d3-ff-ff-ff-ff-00-00-00-00"  # signed int64
-    - "cb-c1-f0-00-00-00-00-00-00"  # double
-
-# +0x0001000000000000 = +281474976710656
-- number: 281474976710656
-  bignum: "281474976710656"
-  msgpack:
-    - "cf-00-01-00-00-00-00-00-00"  # unsigned int64
-    - "d3-00-01-00-00-00-00-00-00"  # signed int64
-    - "ca-57-80-00-00"              # float
-    - "cb-42-f0-00-00-00-00-00-00"  # double
-
-# -0x0001000000000000 = -281474976710656
-- number: -281474976710656
-  bignum: "-281474976710656"
-  msgpack:
-    - "d3-ff-ff-00-00-00-00-00-00"  # signed int64
-    - "ca-d7-80-00-00"              # float
-    - "cb-c2-f0-00-00-00-00-00-00"  # double
-
-# JSON could not hold big numbers below
-
-# +0x7FFFFFFFFFFFFFFF = +9223372036854775807
-- bignum: "9223372036854775807"
-  msgpack:
-    - "d3-7f-ff-ff-ff-ff-ff-ff-ff"  # signed int64
-    - "cf-7f-ff-ff-ff-ff-ff-ff-ff"  # unsigned int64
-
-# -0x7FFFFFFFFFFFFFFF = -9223372036854775807
-- bignum: "-9223372036854775807"
-  msgpack:
-    - "d3-80-00-00-00-00-00-00-01"  # signed int64
-
-# +0x8000000000000000 = +9223372036854775808
-- bignum: "9223372036854775808"
-  msgpack:
-    - "cf-80-00-00-00-00-00-00-00"  # unsigned int64
-
-# -0x8000000000000000 = -9223372036854775808
-- bignum: "-9223372036854775808"
-  msgpack:
-    - "d3-80-00-00-00-00-00-00-00"  # signed int64
-
-# +0xFFFFFFFFFFFFFFFF = +18446744073709551615
-- bignum: "18446744073709551615"
-  msgpack:
-    - "cf-ff-ff-ff-ff-ff-ff-ff-ff"  # unsigned int64
-
-# 30.string-ascii.yaml:
-
-# string-ascii
-
-# '' // empty string
-- string: ""
-  msgpack:
-    - "a0"
-    - "d9-00"
-    - "da-00-00"
-    - "db-00-00-00-00"
-
-# "a"
-- string: "a"
-  msgpack:
-    - "a1-61"
-    - "d9-01-61"
-    - "da-00-01-61"
-    - "db-00-00-00-01-61"
-
-# "1234567890123456789012345678901"
-- string: "1234567890123456789012345678901"
-  msgpack:
-    - "bf-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31"
-    - "d9-1f-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31"
-    - "da-00-1f-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31"
-
-# "12345678901234567890123456789012"
-- string: "12345678901234567890123456789012"
-  msgpack:
-    - "d9-20-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31-32"
-    - "da-00-20-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31-32-33-34-35-36-37-38-39-30-31-32"
-
-# 31.string-utf8.yaml:
-
-# string-utf8
-
-# "Кириллица" // Russian Cyrillic alphabet
-- string: "Кириллица"
-  msgpack:
-    - "b2-d0-9a-d0-b8-d1-80-d0-b8-d0-bb-d0-bb-d0-b8-d1-86-d0-b0"
-    - "d9-12-d0-9a-d0-b8-d1-80-d0-b8-d0-bb-d0-bb-d0-b8-d1-86-d0-b0"
-
-# "ひらがな" // Japanese Hiragana character
-- string: "ひらがな"
-  msgpack:
-    - "ac-e3-81-b2-e3-82-89-e3-81-8c-e3-81-aa"
-    - "d9-0c-e3-81-b2-e3-82-89-e3-81-8c-e3-81-aa"
-
-# "한글" // Korean Hangul character
-- string: "한글"
-  msgpack:
-    - "a6-ed-95-9c-ea-b8-80"
-    - "d9-06-ed-95-9c-ea-b8-80"
-
-# "汉字" // Simplified Chinese character
-- string: "汉字"
-  msgpack:
-    - "a6-e6-b1-89-e5-ad-97"
-    - "d9-06-e6-b1-89-e5-ad-97"
-
-# "漢字" // Traditional Chinese character
-- string: "漢字"
-  msgpack:
-    - "a6-e6-bc-a2-e5-ad-97"
-    - "d9-06-e6-bc-a2-e5-ad-97"
-
-# 32.string-emoji.yaml:
-
-# string-emoji
-
-# "❤" // U+2764 HEAVY BLACK HEART
-- string: "❤"
-  msgpack:
-    - "a3-e2-9d-a4"
-    - "d9-03-e2-9d-a4"
-
-# "🍺" // U+1F37A BEER MUG
-- string: "🍺"
-  msgpack:
-    - "a4-f0-9f-8d-ba"
-    - "d9-04-f0-9f-8d-ba"
 
 # 40.array.yaml:
 
