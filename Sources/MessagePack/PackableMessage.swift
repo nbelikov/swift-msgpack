@@ -7,6 +7,10 @@ public class PackableMessage {
         self.writer = DataWriter()
     }
 
+    public func bytes() -> [UInt8] {
+        self.writer.bytes()
+    }
+
     @discardableResult
     public func pack<T: MessagePackCompatible>(_ object: T) throws -> Self {
         try object.pack(to: self)
@@ -84,6 +88,7 @@ public class PackableMessage {
 protocol Writable {
     mutating func write<T>(contentsOf: UnsafePointer<T>) throws
     mutating func write(data: Data) throws
+    func bytes() -> [UInt8]
 }
 
 struct DataWriter: Writable {
@@ -103,4 +108,6 @@ struct DataWriter: Writable {
     mutating func write(data: Data) throws {
         self.data.append(data)
     }
+
+    func bytes() -> [UInt8] { [UInt8](self.data) }
 }
