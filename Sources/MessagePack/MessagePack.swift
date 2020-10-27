@@ -86,8 +86,8 @@ struct FormatByte: RawRepresentable {
                 // Within defined value range, rawValue is the exact bit
                 // representation of the assoviated value for two's complement
                 // 8-bit integers.
-                return Int8(bitPattern: self.rawValueRange.upperBound) ...
-                       Int8(bitPattern: self.rawValueRange.lowerBound)
+                return Int8(bitPattern: self.rawValueRange.lowerBound) ...
+                       Int8(bitPattern: self.rawValueRange.upperBound)
             default:
                 return 0 ... (Int8(self.rawValueRange.upperBound -
                                    self.rawValueRange.lowerBound))
