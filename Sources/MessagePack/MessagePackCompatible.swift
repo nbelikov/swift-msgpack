@@ -40,10 +40,14 @@ extension Bool: MessagePackCompatible {
 extension Double: MessagePackCompatible {
     public init(unpackFrom message: UnpackableMessage) throws {
         let formatByte = try message.readFormatByte()
-        guard formatByte.format == .float64 else {
-            throw MessagePackError.incompatibleType
+        switch formatByte.format {
+        case .float32:
+            let bitPattern = try message.readInteger(as: UInt32.self)
+            self.init(Float(bitPattern: bitPattern))
+        case .float64:
+            self.init(bitPattern: try message.readInteger(as: UInt64.self))
+        default: throw MessagePackError.incompatibleType
         }
-        self.init(bitPattern: try message.readInteger(as: UInt64.self))
     }
 
     public func pack(to message: PackableMessage) throws {

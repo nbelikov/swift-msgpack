@@ -24,8 +24,7 @@ public class UnpackableMessage {
         case .integer: return try self.unpackAnyInteger()
         case .`nil`:   return nil
         case .bool:    return try self.unpack() as Bool
-        case .float:   return try self.unpack() as Float
-        case .double:  return try self.unpack() as Double
+        case .float:   return try self.unpack() as Double
         case .string:  return try self.unpack() as String
         case .binary:  return try self.unpackBytes()
         case .array:   return try self.unpackAnyArray()

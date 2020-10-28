@@ -12,7 +12,6 @@ public enum MessagePackType {
     case `nil`
     case bool
     case float
-    case double
     case string
     case binary
     case array
@@ -25,8 +24,7 @@ public enum MessagePackType {
              .positiveFixint, .negativeFixint: self = .integer
         case .`nil`:                         self = .`nil`
         case .`false`, .`true`:              self = .bool
-        case .float32:                       self = .float
-        case .float64:                       self = .double
+        case .float32, .float64:             self = .float
         case .fixstr, .str8, .str16, .str32: self = .string
         case .bin8, .bin16, .bin32:          self = .binary
         case .fixarray, .array16, .array32:  self = .array
