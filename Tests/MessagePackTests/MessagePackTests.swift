@@ -17,11 +17,18 @@ final class MessagePackTests: XCTestCase {
     }
 
     func runDatasetPack<T>(_ dataset: Dataset<T>) throws {
+        func toString(_ bytes: [UInt8]) -> String {
+            bytes.lazy.map {
+                String(format: "%02x", $0)
+            }.joined(separator: "-")
+        }
         for entry in dataset.entries {
             let msg = { "while packing \(T.self) value \"\(entry.value)\"" }
             let message = PackableMessage()
             XCTAssertNoThrow(try message.pack(entry.value), msg())
-            XCTAssertEqual(message.bytes(), entry.packedValues[0], msg())
+            // XCTAssertEqual(message.bytes(), entry.packedValues[0], msg())
+            XCTAssertEqual(toString(message.bytes()),
+                           toString(entry.packedValues[0]), msg())
         }
     }
 
