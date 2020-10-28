@@ -80,8 +80,8 @@ public class PackableMessage {
     }
 
     func writeInteger<T: FixedWidthInteger>(_ value: T) throws {
-        var mutable = value // FIXME
-        try self.writer.write(contentsOf: &mutable)
+        var bigEndian = T(bigEndian: value) // FIXME immutable won't work
+        try self.writer.write(contentsOf: &bigEndian)
     }
 }
 
