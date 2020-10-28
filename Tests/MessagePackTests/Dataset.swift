@@ -77,6 +77,10 @@ let binaryData = Dataset([
 // NOTE: The contents of 23.number-bignum.yaml are split and appended to
 // positiveIntData and negativeIntData datasets since the test runner would
 // process 64-bit integer data exactly the same way as it would with 32-bit.
+// NOTE: The test runner will assume that the 0-th element in packed values
+// list is the most compact and therefore correct way to encode a value.  Since
+// this implementation prefers packing to signed integers unless an unsinged
+// integer would be more compact, appropriate values are moved to top.
 
 let positiveIntData = Dataset<UInt64>([
     // 20.number-positive.yaml:
@@ -141,10 +145,10 @@ let positiveIntData = Dataset<UInt64>([
     ]),
 
     (256, [ // 0x0100
+        "d1-01-00",
         "cd-01-00",
         "ce-00-00-01-00",
         "cf-00-00-00-00-00-00-01-00",
-        "d1-01-00",
         "d2-00-00-01-00",
         "d3-00-00-00-00-00-00-01-00",
     ]),
@@ -158,16 +162,16 @@ let positiveIntData = Dataset<UInt64>([
     ]),
 
     (65536, [ // 0x000100000
+        "d2-00-01-00-00",
         "ce-00-01-00-00",
         "cf-00-00-00-00-00-01-00-00",
-        "d2-00-01-00-00",
         "d3-00-00-00-00-00-01-00-00",
     ]),
 
     (2147483647, [ // 0x7FFFFFFF
+        "d2-7f-ff-ff-ff",
         "ce-7f-ff-ff-ff",
         "cf-00-00-00-00-7f-ff-ff-ff",
-        "d2-7f-ff-ff-ff",
         "d3-00-00-00-00-7f-ff-ff-ff",
     ]),
 
@@ -188,15 +192,15 @@ let positiveIntData = Dataset<UInt64>([
 
     // 23.number-bignum.yaml:
     (4294967296, [ // +0x0000000100000000
-        "cf-00-00-00-01-00-00-00-00",  // unsigned int64
         "d3-00-00-00-01-00-00-00-00",  // signed int64
+        "cf-00-00-00-01-00-00-00-00",  // unsigned int64
         // "ca-4f-80-00-00",              // float
         // "cb-41-f0-00-00-00-00-00-00",  // double
     ]),
 
     (281474976710656, [ // +0x0001000000000000
-        "cf-00-01-00-00-00-00-00-00",  // unsigned int64
         "d3-00-01-00-00-00-00-00-00",  // signed int64
+        "cf-00-01-00-00-00-00-00-00",  // unsigned int64
         // "ca-57-80-00-00",              // float
         // "cb-42-f0-00-00-00-00-00-00",  // double
     ]),
