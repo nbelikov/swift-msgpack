@@ -118,18 +118,20 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
             }
         } else if let uint8  = UInt8(exactly: self) {
             try message.writeFormatAndInteger(.uint8,  uint8)
-        } else if let int16  = UInt16(exactly: self) {
+        } else if let int16  = Int16(exactly: self) {
             try message.writeFormatAndInteger(.int16,  int16)
         } else if let uint16 = UInt16(exactly: self) {
             try message.writeFormatAndInteger(.uint16, uint16)
-        } else if let int32  = UInt32(exactly: self) {
+        } else if let int32  = Int32(exactly: self) {
             try message.writeFormatAndInteger(.int32,  int32)
         } else if let uint32 = UInt32(exactly: self) {
             try message.writeFormatAndInteger(.uint32, uint32)
-        } else if let int64  = UInt64(exactly: self) {
+        } else if let int64  = Int64(exactly: self) {
             try message.writeFormatAndInteger(.int64,  int64)
         } else if let uint64 = UInt64(exactly: self) {
             try message.writeFormatAndInteger(.uint64, uint64)
+        } else {
+            preconditionFailure()
         }
     }
 }
