@@ -3,12 +3,12 @@ import XCTest
 
 final class MessagePackTests: XCTestCase {
     func testDataset() throws {
-        try self.runDatasetTests(nilData)
-        try self.runDatasetTests(boolData)
-        try self.runDatasetTests(positiveIntData)
-        try self.runDatasetTests(negativeIntData)
-        try self.runDatasetTests(floatData)
-        try self.runDatasetTests(stringData)
+        try self.runDatasetTests(nilDataset)
+        try self.runDatasetTests(boolDataset)
+        try self.runDatasetTests(positiveIntDataset)
+        try self.runDatasetTests(negativeIntDataset)
+        try self.runDatasetTests(floatDataset)
+        try self.runDatasetTests(stringDataset)
     }
 
     func runDatasetTests<T>(_ dataset: Dataset<T>) throws {

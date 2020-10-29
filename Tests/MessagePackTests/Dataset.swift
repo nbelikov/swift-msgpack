@@ -29,14 +29,14 @@ SOFTWARE.
 
 import struct Foundation.Data
 
-let nilData = Dataset<Int?>([
+let nilDataset = Dataset<Int?>([
     // 10.nil.yaml:
     (nil, [
         "c0",
     ]),
 ])
 
-let boolData = Dataset([
+let boolDataset = Dataset([
     // 11.bool.yaml:
     (false, [
         "c2",
@@ -49,7 +49,7 @@ let boolData = Dataset([
 
 // FIXME: Extend Data to conform to MessagePackCompatible
 /*
-let binaryData = Dataset([
+let binaryDataset = Dataset([
     // 12.binary.yaml:
     (Data(), [ // [] - empty
         "c4-00",
@@ -71,18 +71,18 @@ let binaryData = Dataset([
 ])
 */
 
-// NOTE: float32 and float64 formats are commented out for positiveIntData and
-// negativeIntData since this implementation doesn't allow implicit conversions
-// between floating point and integral values.
+// NOTE: float32 and float64 formats are commented out for positiveIntDataset
+// and negativeIntDataset since this implementation doesn't allow implicit
+// conversions between floating point and integral values.
 // NOTE: The contents of 23.number-bignum.yaml are split and appended to
-// positiveIntData and negativeIntData datasets since the test runner would
+// positiveIntDataset and negativeIntDataset since the test runner would
 // process 64-bit integer data exactly the same way as it would with 32-bit.
 // NOTE: The test runner will assume that the 0-th element in packed values
 // list is the most compact and therefore correct way to encode a value.  Since
 // this implementation prefers packing to signed integers unless an unsinged
 // integer would be more compact, appropriate values are moved to top.
 
-let positiveIntData = Dataset<UInt64>([
+let positiveIntDataset = Dataset<UInt64>([
     // 20.number-positive.yaml:
     (0, [ // 0x0000
         "00",                          // 0 ... 127
@@ -219,7 +219,7 @@ let positiveIntData = Dataset<UInt64>([
     ]),
 ])
 
-let negativeIntData = Dataset<Int64>([
+let negativeIntDataset = Dataset<Int64>([
     // 21.number-negative.yaml:
     (-1, [ // 0xFFFFFFFF
         "ff",                          // -1 ... -32
@@ -299,7 +299,7 @@ let negativeIntData = Dataset<Int64>([
     ]),
 ])
 
-let floatData = Dataset<Float>([
+let floatDataset = Dataset<Float>([
     // 22.number-float.yaml:
     (0.5, [
         "ca-3f-00-00-00",
@@ -315,7 +315,7 @@ let floatData = Dataset<Float>([
 // NOTE: The contents of 30.string-ascii.yaml, 31.string-utf8.yaml and
 // 32.string-emoji.yaml are combined into a single dataset.
 
-let stringData = Dataset([
+let stringDataset = Dataset([
     // 30.string-ascii.yaml:
     ("", [ // empty string
         "a0",
