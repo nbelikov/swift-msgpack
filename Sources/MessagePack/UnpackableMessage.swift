@@ -26,7 +26,7 @@ public class UnpackableMessage {
         case .bool:    return try self.unpack() as Bool
         case .float:   return try self.unpack() as Double
         case .string:  return try self.unpack() as String
-        case .binary:  return try self.unpackBytes()
+        case .binary:  return try self.unpackBinary()
         case .array:   return try self.unpackAnyArray()
         case .map:     return try self.unpackAnyMap()
         case .`extension`: return nil // FIXME
@@ -60,7 +60,7 @@ public class UnpackableMessage {
         try self.reader.isEmpty()
     }
 
-    public func unpackBytes() throws -> [UInt8] {
+    public func unpackBinary() throws -> [UInt8] {
         let formatByte = try self.readFormatByte()
         let type = MessagePackType(formatByte)
         guard type == .binary || type == .string else {
