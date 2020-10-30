@@ -18,31 +18,26 @@ final class MessagePackTests: XCTestCase {
 
     func runDatasetPack<T>(_ dataset: Dataset<T>) throws {
         func toString(_ bytes: [UInt8]) -> String {
-            bytes.lazy.map {
-                String(format: "%02x", $0)
+            bytes.lazy.map { String(format: "%02x", $0)
             }.joined(separator: "-")
         }
-        for entry in dataset.entries {
-            let msg = { "while packing \(T.self) value \"\(entry.value)\"" }
+        try dataset.withFirstVariant {
+            let context = "while packing \(T.self) value \"\($0.value)\""
             let message = PackableMessage()
-            XCTAssertNoThrow(try message.pack(entry.value), msg())
-            // XCTAssertEqual(message.bytes(), entry.packedValues[0], msg())
-            XCTAssertEqual(toString(message.bytes()),
-                           toString(entry.packedValues[0]), msg())
+            XCTAssertNoThrow(try message.pack($0.value), context)
+            // TODO: Disable converting to string for better performance
+            // XCTAssertEqual($0.packedValue, message.bytes(), context)
+            XCTAssertEqual(toString($0.packedValue),
+                           toString(message.bytes()), context)
         }
     }
 
     func runDatasetUnpack<T>(_ dataset: Dataset<T>) throws {
-        let testCases = dataset.entries.lazy.flatMap { entry in
-            entry.packedValues.enumerated().lazy.map {
-                (variant, packedValue) in (entry.value, variant, packedValue)
-            }
-        }
-        for (value, variant, packedValue) in testCases {
-            let message = UnpackableMessage(fromBytes: packedValue)
-            XCTAssertEqual(try message.unpack(), value,
-                "while unpacking variant \(variant) of " +
-                "\(T.self) value \"\(value)\"")
+        try dataset.withAllVariants {
+            let context = "while unpacking variant \($0.variant) of " +
+                "\(T.self) value \"\($0.value)\""
+            let message = UnpackableMessage(fromBytes: $0.packedValue)
+            XCTAssertEqual($0.value, try message.unpack(), context)
         }
     }
 
