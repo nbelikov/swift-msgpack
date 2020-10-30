@@ -17,18 +17,12 @@ final class MessagePackTests: XCTestCase {
     }
 
     func runDatasetPack<T>(_ dataset: Dataset<T>) throws {
-        func toString(_ bytes: [UInt8]) -> String {
-            bytes.lazy.map { String(format: "%02x", $0)
-            }.joined(separator: "-")
-        }
         try dataset.withFirstVariant {
             let context = "while packing \(T.self) value \"\($0.value)\""
             let message = PackableMessage()
             XCTAssertNoThrow(try message.pack($0.value), context)
-            // TODO: Disable converting to string for better performance
-            // XCTAssertEqual($0.packedValue, message.bytes(), context)
-            XCTAssertEqual(toString($0.packedValue),
-                           toString(message.bytes()), context)
+            XCTAssertEqual(Bytes($0.packedValue),
+                           Bytes(message.bytes()), context)
         }
     }
 
@@ -44,4 +38,20 @@ final class MessagePackTests: XCTestCase {
     static var allTests = [
         ("testDataset", testDataset),
     ]
+}
+
+// A simple wrapper for a byte array which provides a human-readable
+// description when equality assertion fails and imposes no runtime cost
+// otherwise.
+// FIXME: Needs a less common name
+struct Bytes: Equatable, CustomStringConvertible {
+    let bytes: [UInt8]
+
+    init(_ bytes: [UInt8]) {
+        self.bytes = bytes
+    }
+
+    var description: String {
+        bytes.lazy.map { String(format: "%02x", $0) }.joined(separator: "-")
+    }
 }
