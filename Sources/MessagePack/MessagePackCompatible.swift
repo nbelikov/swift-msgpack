@@ -155,11 +155,9 @@ extension String: MessagePackCompatible {
     }
 
     public func pack(to message: PackableMessage) throws {
-        guard let data = self.data(using: .utf8) else {
-            throw MessagePackError.invalidUtf8String
-        }
-        try message.writeHeader(forType: .string, length: UInt(data.count))
-        try message.writer.write(data: data)
+        let bytes = [UInt8](self.utf8) // TODO: avoid copying?
+        try message.writeHeader(forType: .string, length: UInt(bytes.count))
+        try message.writer.write(bytes: bytes)
     }
 }
 
