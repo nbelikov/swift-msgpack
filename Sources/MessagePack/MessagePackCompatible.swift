@@ -147,8 +147,8 @@ extension String: MessagePackCompatible {
             throw MessagePackError.incompatibleType
         }
         let length = try message.readLength(formatByte)
-        let data = try message.reader.readAsData(size: length)
-        guard let string = String(data: data, encoding: .utf8) else {
+        let bytes = try message.reader.readBytes(size: length)
+        guard let string = String(bytes: bytes, encoding: .utf8) else {
             throw MessagePackError.invalidUtf8String
         }
         self = string

@@ -7,12 +7,12 @@ public class UnpackableMessage {
     // and self.peekFormatByte()
     var _formatByte: FormatByte?
 
-    public init(fromData data: Data) {
-        self.reader = DataReader(data: data)
+    public convenience init(fromData data: Data) {
+        self.init(fromBytes: [UInt8](data)) // FIXME
     }
 
-    public convenience init(fromBytes bytes: [UInt8]) {
-        self.init(fromData: Data(bytes))
+    public init(fromBytes bytes: [UInt8]) {
+        self.reader = ByteArrayReader(bytes: bytes)
     }
 
     // FIXME: This recursive implementation can be easily tricked by malicious
@@ -67,7 +67,7 @@ public class UnpackableMessage {
             throw MessagePackError.incompatibleType
         }
         let length = try self.readLength(formatByte)
-        return Array(try self.reader.readAsData(size: length))
+        return Array(try self.reader.readBytes(size: length))
     }
 
     func unpackAnyInteger() throws -> Any {
@@ -140,28 +140,29 @@ public class UnpackableMessage {
 
 protocol Readable {
     mutating func read<T>(into: UnsafeMutablePointer<T>) throws
-    mutating func readAsData(size: UInt) throws -> Data
+    mutating func readBytes(size: UInt) throws -> ArraySlice<UInt8> // FIXME
     mutating func isEmpty() throws -> Bool // FIXME: does it need to throw?
 }
 
-struct DataReader: Readable {
-    var data: Data
+struct ByteArrayReader: Readable {
+    var bytes: [UInt8]
     var position: Int = 0
 
     mutating func read<T>(into pointer: UnsafeMutablePointer<T>) throws {
         let size = MemoryLayout<T>.size
-        let subData = try self.readAsData(size: UInt(size))
+        let bytes = try self.readBytes(size: UInt(size))
+        let data = Data(bytes) // FIXME
         pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
-            subData.copyBytes(to: $0, count: size)
+            data.copyBytes(to: $0, count: size)
         }
     }
 
-    mutating func readAsData(size: UInt) throws -> Data {
+    mutating func readBytes(size: UInt) throws -> ArraySlice<UInt8> {
         // This could overflow on 32-bit hosts:
         //     let intSize = Int(exactly: size) else { ... }
         //     let endPosition = self.position + intSize
-        //     guard endPosition <= self.data.count else { ... }
-        let remaining = self.data.count - self.position
+        //     guard endPosition <= self.bytes.count else { ... }
+        let remaining = self.bytes.count - self.position
         guard size <= remaining else {
             throw MessagePackError.unexpectedEndOfMessage
         }
@@ -170,10 +171,10 @@ struct DataReader: Readable {
         let endPosition = self.position + Int(size)
         let range = self.position ..< endPosition
         self.position = endPosition
-        return data[range]
+        return bytes[range]
     }
 
     func isEmpty() throws -> Bool {
-        self.position == self.data.count
+        self.position == self.bytes.count
     }
 }
