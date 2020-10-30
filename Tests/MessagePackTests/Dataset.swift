@@ -27,8 +27,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-import struct Foundation.Data
-
 let nilDataset = Dataset<Int?>([
     // 10.nil.yaml:
     (nil, [
@@ -47,29 +45,26 @@ let boolDataset = Dataset([
     ]),
 ])
 
-// FIXME: Extend Data to conform to MessagePackCompatible
-/*
-let binaryDataset = Dataset([
+let binaryDataset = Dataset<[UInt8]>([
     // 12.binary.yaml:
-    (Data(), [ // [] - empty
+    ([], [ // [] - empty
         "c4-00",
         "c5-00-00",
         "c6-00-00-00-00",
     ]),
 
-    (Data([0x01]), [ // [1]
+    ([0x01], [ // [1]
         "c4-01-01",
         "c5-00-01-01",
         "c6-00-00-00-01-01",
     ]),
 
-    (Data([0x00, 0xff]), [ // [0, 255]
+    ([0x00, 0xff], [ // [0, 255]
         "c4-02-00-ff",
         "c5-00-02-00-ff",
         "c6-00-00-00-02-00-ff",
     ]),
 ])
-*/
 
 // NOTE: float32 and float64 formats are commented out for positiveIntDataset
 // and negativeIntDataset since this implementation doesn't allow implicit

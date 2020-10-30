@@ -2,6 +2,23 @@ import MessagePack
 import XCTest
 
 final class MessagePackTests: XCTestCase {
+    func testBinaryDataset() throws {
+        // FIXME: This is almost the same as runDatasetTests
+        try binaryDataset.withFirstVariant {
+            let message = PackableMessage()
+            let context = "while packing value \"\($0.value)\""
+            XCTAssertNoThrow(try message.packBinary($0.value), context)
+            XCTAssertEqual(Bytes($0.packedValue),
+                           Bytes(message.bytes()), context)
+        }
+        try binaryDataset.withAllVariants {
+            let context = "while unpacking variant \($0.variant) of " +
+                "value \"\($0.value)\""
+            let message = UnpackableMessage(fromBytes: $0.packedValue)
+            XCTAssertEqual($0.value, try message.unpackBinary(), context)
+        }
+    }
+
     func testDataset() throws {
         try self.runDatasetTests(nilDataset)
         try self.runDatasetTests(boolDataset)
@@ -29,6 +46,7 @@ final class MessagePackTests: XCTestCase {
 
     static var allTests = [
         ("testDataset", testDataset),
+        ("testBinaryDataset", testBinaryDataset),
     ]
 }
 
