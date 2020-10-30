@@ -12,11 +12,6 @@ final class MessagePackTests: XCTestCase {
     }
 
     func runDatasetTests<T>(_ dataset: Dataset<T>) throws {
-        try self.runDatasetPack(dataset)
-        try self.runDatasetUnpack(dataset)
-    }
-
-    func runDatasetPack<T>(_ dataset: Dataset<T>) throws {
         try dataset.withFirstVariant {
             let context = "while packing \(T.self) value \"\($0.value)\""
             let message = PackableMessage()
@@ -24,9 +19,6 @@ final class MessagePackTests: XCTestCase {
             XCTAssertEqual(Bytes($0.packedValue),
                            Bytes(message.bytes()), context)
         }
-    }
-
-    func runDatasetUnpack<T>(_ dataset: Dataset<T>) throws {
         try dataset.withAllVariants {
             let context = "while unpacking variant \($0.variant) of " +
                 "\(T.self) value \"\($0.value)\""
