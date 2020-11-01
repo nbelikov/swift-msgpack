@@ -4,12 +4,11 @@ public class PackableMessage {
     var writer: Writable
 
     public init() {
-        self.writer = ByteArrayWriter()
+        self.writer = DataWriter()
     }
 
-    // FIXME: this API won't be available for stream wrtiter
     public func bytes() -> [UInt8] {
-        self.writer.bytes
+        self.writer.bytes()
     }
 
     @discardableResult
@@ -20,7 +19,7 @@ public class PackableMessage {
 
     public func packBinary(_ bytes: [UInt8]) throws -> Self {
         try self.writeHeader(forType: .binary, length: UInt(bytes.count))
-        try self.writer.write(bytes: bytes)
+        try self.writer.write(data: Data(bytes))
         return self
     }
 
@@ -94,28 +93,27 @@ public class PackableMessage {
 
 protocol Writable {
     mutating func write<T>(contentsOf: UnsafePointer<T>) throws
-    mutating func write(bytes: [UInt8]) throws
-    // FIXME: this API won't be available for stream wrtiter
-    var bytes: [UInt8] { get }
+    mutating func write(data: Data) throws
+    func bytes() -> [UInt8]
 }
 
-struct ByteArrayWriter: Writable {
-    var bytes: [UInt8]
+struct DataWriter: Writable {
+    var data: Data
 
     init() {
-        self.bytes = []
+        self.data = Data()
     }
 
     mutating func write<T>(contentsOf pointer: UnsafePointer<T>) throws {
         let size = MemoryLayout<T>.size
-        var data = Data() // FIXME
         pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
-            data.append($0, count: size)
+            self.data.append($0, count: size)
         }
-        try self.write(bytes: [UInt8](data))
     }
 
-    mutating func write(bytes: [UInt8]) throws {
-        self.bytes.append(contentsOf: bytes)
+    mutating func write(data: Data) throws {
+        self.data.append(data)
     }
+
+    func bytes() -> [UInt8] { [UInt8](self.data) }
 }

@@ -147,17 +147,19 @@ extension String: MessagePackCompatible {
             throw MessagePackError.incompatibleType
         }
         let length = try message.readLength(formatByte)
-        let bytes = try message.reader.readBytes(size: length)
-        guard let string = String(bytes: bytes, encoding: .utf8) else {
+        let data = try message.reader.readAsData(size: length)
+        guard let string = String(data: data, encoding: .utf8) else {
             throw MessagePackError.invalidUtf8String
         }
         self = string
     }
 
     public func pack(to message: PackableMessage) throws {
-        let bytes = [UInt8](self.utf8) // TODO: avoid copying?
-        try message.writeHeader(forType: .string, length: UInt(bytes.count))
-        try message.writer.write(bytes: bytes)
+        guard let data = self.data(using: .utf8) else {
+            throw MessagePackError.invalidUtf8String
+        }
+        try message.writeHeader(forType: .string, length: UInt(data.count))
+        try message.writer.write(data: data)
     }
 }
 
