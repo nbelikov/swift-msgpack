@@ -3,30 +3,42 @@ import XCTest
 
 final class MessagePackTests: XCTestCase {
     func testDataset() throws {
-        try self.runDatasetTests(nilDataset)
-        try self.runDatasetTests(boolDataset)
+        self.runDatasetTests(nilDataset)
+        self.runDatasetTests(boolDataset)
         // TODO: Test unpacking strings as Data
-        try self.runDatasetTests(binaryDataset)
-        try self.runDatasetTests(positiveIntDataset)
-        try self.runDatasetTests(negativeIntDataset)
-        try self.runDatasetTests(floatDataset)
-        try self.runDatasetTests(stringDataset)
+        self.runDatasetTests(binaryDataset)
+        // TODO: Test on various integer types
+        self.runDatasetTests(positiveIntDataset)
+        self.runDatasetTests(negativeIntDataset)
+        // TODO: Test Float
+        // TODO: Add tests for +-infinity and NaNs
+        self.runDatasetTests(floatDataset)
+        self.runDatasetTests(stringDataset)
+        // TODO: Test array
+        // TODO: Test map
+        // TODO: Test extersions
     }
 
-    func runDatasetTests<T>(_ dataset: Dataset<T>) throws {
-        try dataset.withFirstVariant {
-            let context = "while packing \(T.self) value \"\($0.value)\""
-            let message = PackableMessage()
-            XCTAssertNoThrow(try message.pack($0.value), context)
-            XCTAssertEqual(StringConvertibleData($0.packedValue),
-                           StringConvertibleData(message.data), context)
-        }
-        try dataset.withAllVariants {
-            let context = "while unpacking variant \($0.variant) of " +
-                "\(T.self) value \"\($0.value)\""
-            let message = UnpackableMessage(fromData: $0.packedValue)
-            XCTAssertEqual($0.value, try message.unpack(), context)
-        }
+    func runDatasetTests<T>(_ dataset: Dataset<T>) {
+        dataset.withFirstVariant(self.doTestPack)
+        dataset.withAllVariants(self.doTestUnpack)
+    }
+
+    func doTestPack<T>(value: T, packedValue: Data)
+    where T: MessagePackCompatible & Equatable {
+        let context = "while packing \(T.self) value \"\(value)\""
+        let message = PackableMessage()
+        XCTAssertNoThrow(try message.pack(value), context)
+        XCTAssertEqual(StringConvertibleData(packedValue),
+                       StringConvertibleData(message.data), context)
+    }
+
+    func doTestUnpack<T>(value: T, variant: Int, packedValue: Data)
+    where T: MessagePackCompatible & Equatable {
+        let context = "while unpacking variant \(variant) of " +
+            "\(T.self) value \"\(value)\""
+        let message = UnpackableMessage(fromData: packedValue)
+        XCTAssertEqual(value, try message.unpack(), context)
     }
 
     static var allTests = [
