@@ -18,7 +18,7 @@ where Wrapped: MessagePackCompatible {
 
     public func pack(to message: PackableMessage) throws {
         switch self {
-        case .none:              try message.writeFormatByte(.`nil`)
+        case .none:              message.writeFormatByte(.`nil`)
         case .some(let wrapped): try message.pack(wrapped)
         }
     }
@@ -34,8 +34,8 @@ extension Bool: MessagePackCompatible {
         }
     }
 
-    public func pack(to message: PackableMessage) throws {
-        try message.writeFormatByte(self ? .`true` : .`false`)
+    public func pack(to message: PackableMessage) {
+        message.writeFormatByte(self ? .`true` : .`false`)
     }
 }
 
@@ -52,8 +52,8 @@ extension Double: MessagePackCompatible {
         }
     }
 
-    public func pack(to message: PackableMessage) throws {
-        try message.writeFormatAndInteger(.float64, self.bitPattern)
+    public func pack(to message: PackableMessage) {
+        message.writeFormatAndInteger(.float64, self.bitPattern)
     }
 }
 
@@ -66,8 +66,8 @@ extension Float: MessagePackCompatible {
         self.init(bitPattern: try message.readInteger(as: UInt32.self))
     }
 
-    public func pack(to message: PackableMessage) throws {
-        try message.writeFormatAndInteger(.float32, self.bitPattern)
+    public func pack(to message: PackableMessage) {
+        message.writeFormatAndInteger(.float32, self.bitPattern)
     }
 }
 
@@ -112,30 +112,30 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
         self.init(result!)
     }
 
-    public func pack(to message: PackableMessage) throws {
+    public func pack(to message: PackableMessage) {
         if let int8 = Int8(exactly: self) {
             switch int8 {
             case FormatByte.Format.positiveFixint.valueRange:
-                try message.writeFormatByte(.positiveFixint, withValue: int8)
+                message.writeFormatByte(.positiveFixint, withValue: int8)
             case FormatByte.Format.negativeFixint.valueRange:
-                try message.writeFormatByte(.negativeFixint, withValue: int8)
+                message.writeFormatByte(.negativeFixint, withValue: int8)
             default:
-                try message.writeFormatAndInteger(.int8, int8)
+                message.writeFormatAndInteger(.int8, int8)
             }
         } else if let uint8  = UInt8(exactly: self) {
-            try message.writeFormatAndInteger(.uint8,  uint8)
+            message.writeFormatAndInteger(.uint8,  uint8)
         } else if let int16  = Int16(exactly: self) {
-            try message.writeFormatAndInteger(.int16,  int16)
+            message.writeFormatAndInteger(.int16,  int16)
         } else if let uint16 = UInt16(exactly: self) {
-            try message.writeFormatAndInteger(.uint16, uint16)
+            message.writeFormatAndInteger(.uint16, uint16)
         } else if let int32  = Int32(exactly: self) {
-            try message.writeFormatAndInteger(.int32,  int32)
+            message.writeFormatAndInteger(.int32,  int32)
         } else if let uint32 = UInt32(exactly: self) {
-            try message.writeFormatAndInteger(.uint32, uint32)
+            message.writeFormatAndInteger(.uint32, uint32)
         } else if let int64  = Int64(exactly: self) {
-            try message.writeFormatAndInteger(.int64,  int64)
+            message.writeFormatAndInteger(.int64,  int64)
         } else if let uint64 = UInt64(exactly: self) {
-            try message.writeFormatAndInteger(.uint64, uint64)
+            message.writeFormatAndInteger(.uint64, uint64)
         } else {
             preconditionFailure()
         }
@@ -155,7 +155,7 @@ extension Data: MessagePackCompatible {
 
     public func pack(to message: PackableMessage) throws {
         try message.writeHeader(forType: .binary, length: UInt(self.count))
-        try message.write(data: self)
+        message.write(data: self)
     }
 }
 
@@ -178,7 +178,7 @@ extension String: MessagePackCompatible {
             throw MessagePackError.invalidUtf8String
         }
         try message.writeHeader(forType: .string, length: UInt(data.count))
-        try message.write(data: data)
+        message.write(data: data)
     }
 }
 

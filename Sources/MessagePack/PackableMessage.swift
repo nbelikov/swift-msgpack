@@ -19,7 +19,7 @@ public class PackableMessage {
         }
         if let formatByte = self.singleByteHeader(forType: type,
                                                   length:  length) {
-            try self.writeInteger(formatByte.rawValue)
+            self.writeInteger(formatByte.rawValue)
             return
         }
         let formats: [FormatByte.Format?]
@@ -33,11 +33,11 @@ public class PackableMessage {
         }
         switch length {
         case 0 ... UInt(UInt8.max) where formats[0] != nil:
-            try self.writeFormatAndInteger(formats[0]!, UInt8(length))
+            self.writeFormatAndInteger(formats[0]!, UInt8(length))
         case 0 ... UInt(UInt16.max):
-            try self.writeFormatAndInteger(formats[1]!, UInt16(length))
+            self.writeFormatAndInteger(formats[1]!, UInt16(length))
         default:
-            try self.writeFormatAndInteger(formats[2]!, UInt32(length))
+            self.writeFormatAndInteger(formats[2]!, UInt32(length))
         }
     }
 
@@ -61,33 +61,32 @@ public class PackableMessage {
     }
 
     func writeFormatAndInteger<T: FixedWidthInteger>(
-        _ format: FormatByte.Format, _ value: T) throws {
-        try self.writeFormatByte(format)
-        try self.writeInteger(value)
+        _ format: FormatByte.Format, _ value: T) {
+        self.writeFormatByte(format)
+        self.writeInteger(value)
     }
 
-    func writeFormatByte(_ format: FormatByte.Format) throws {
-        try self.writeInteger(FormatByte(format).rawValue)
+    func writeFormatByte(_ format: FormatByte.Format) {
+        self.writeInteger(FormatByte(format).rawValue)
     }
 
-    func writeFormatByte(_ format: FormatByte.Format, withValue value: Int8)
-    throws {
-        try self.writeInteger(FormatByte(format, withValue: value).rawValue)
+    func writeFormatByte(_ format: FormatByte.Format, withValue value: Int8) {
+        self.writeInteger(FormatByte(format, withValue: value).rawValue)
     }
 
-    func writeInteger<T: FixedWidthInteger>(_ value: T) throws {
+    func writeInteger<T: FixedWidthInteger>(_ value: T) {
         var bigEndian = T(bigEndian: value) // FIXME immutable won't work
-        try self.write(contentsOf: &bigEndian)
+        self.write(contentsOf: &bigEndian)
     }
 
-    func write<T>(contentsOf pointer: UnsafePointer<T>) throws {
+    func write<T>(contentsOf pointer: UnsafePointer<T>) {
         let size = MemoryLayout<T>.size
         pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
             self.data.append($0, count: size)
         }
     }
 
-    func write(data: Data) throws {
+    func write(data: Data) {
         self.data.append(data)
     }
 }

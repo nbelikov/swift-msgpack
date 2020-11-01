@@ -53,7 +53,7 @@ public class UnpackableMessage {
         return formatByte
     }
 
-    public func isEmpty() throws -> Bool {
+    public func isEmpty() -> Bool {
         self.position == self.data.count
     }
 
