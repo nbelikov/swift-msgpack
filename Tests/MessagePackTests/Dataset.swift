@@ -277,8 +277,15 @@ let negativeIntDataset = Dataset<Int64>([
     ]),
 ])
 
-// NOTE: The test runner expects to find packed double as the first variant and
-// packed float as the second, so the original order was changed.
+// NOTE: This dataset is a bit different from the others, since the first
+// variant of a packed value is always float64 format, and the second, if
+// present, is always float32, while elsewhere the first variant is always the
+// most compact one.  This is because this implementation does not allow
+// encoding Double values as float32 format.  Such ordering allows the test
+// runner to test, at the same time, that Double values can be packed to
+// float64 format and that both float64 and float32 packed values can be
+// unpacked to Double (upconversion from Float to Double is permitted).  The
+// original dataset's order was changed.
 // NOTE: float32 and float64 formats were moved here from integer datasets.
 
 let doubleDataset = Dataset<Double>([

@@ -29,15 +29,16 @@ final class MessagePackTests: XCTestCase {
     }
 
     func testDoubleDataset() {
+        // See note for doubleDataset in Dataset.swift.
         // TODO: Add tests for +-infinity and NaNs
         self.runDatasetTests(doubleDataset)
     }
 
-    func testStringDataset() {
-        self.runDatasetTests(stringDataset)
-    }
-
     func testFloatWithDoubleDataset() {
+        // See note for doubleDataset in Dataset.swift.
+        // This test will check packing and unpacking Float values to/from
+        // float32 format packed values, which are always at index 1 in this
+        // dataset.
         for entry in doubleDataset.entries {
             guard entry.packedValues.count > 1 else { continue }
             let float = Float(entry.value)
@@ -59,6 +60,10 @@ final class MessagePackTests: XCTestCase {
         self.runIntegerCompatibilityTests(for: UInt32.self)
         self.runIntegerCompatibilityTests(for: Int64.self)
         self.runIntegerCompatibilityTests(for: UInt64.self)
+    }
+
+    func testStringDataset() {
+        self.runDatasetTests(stringDataset)
     }
 
     func runIntegerCompatibilityTests<T>(for type: T.Type)
