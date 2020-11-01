@@ -2,23 +2,40 @@ import MessagePack
 import XCTest
 
 final class MessagePackTests: XCTestCase {
-    func testDataset() throws {
+    // TODO: Test array
+    // TODO: Test map
+    // TODO: Test extersions
+
+    func testNilDataset() {
+        // TODO: Test on different optional types
         self.runDatasetTests(nilDataset)
+    }
+
+    func testBoolDataset() {
         self.runDatasetTests(boolDataset)
+    }
+
+    func testBinaryDataset() {
         // TODO: Test unpacking strings as Data
         self.runDatasetTests(binaryDataset)
+    }
+
+    func testIntegerDatasets() {
         // TODO: Test on various integer types
         self.runDatasetTests(positiveIntDataset)
         self.runDatasetTests(negativeIntDataset)
-        // TODO: Add tests for +-infinity and NaNs
-        self.runDatasetTests(doubleDataset)
-        self.runDatasetTests(stringDataset)
-        // TODO: Test array
-        // TODO: Test map
-        // TODO: Test extersions
     }
 
-    func testFloatDataset() {
+    func testDoubleDataset() {
+        // TODO: Add tests for +-infinity and NaNs
+        self.runDatasetTests(doubleDataset)
+    }
+
+    func testStringDataset() {
+        self.runDatasetTests(stringDataset)
+    }
+
+    func testFloatWithDoubleDataset() {
         for entry in doubleDataset.entries {
             guard entry.packedValues.count > 1 else { continue }
             let float = Float(entry.value)
