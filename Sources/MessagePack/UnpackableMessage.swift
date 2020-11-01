@@ -1,14 +1,15 @@
 import struct Foundation.Data
 
 public class UnpackableMessage {
-    var reader: Readable
+    var data: Data
+    var position: Int = 0
 
     // This property should be directly accessed only by self.readFormatByte()
     // and self.peekFormatByte()
     var _formatByte: FormatByte?
 
     public init(fromData data: Data) {
-        self.reader = DataReader(data: data)
+        self.data = data
     }
 
     public convenience init(fromBytes bytes: [UInt8]) {
@@ -57,7 +58,7 @@ public class UnpackableMessage {
     }
 
     public func isEmpty() throws -> Bool {
-        try self.reader.isEmpty()
+        self.position == self.data.count
     }
 
     public func unpackBinary() throws -> [UInt8] {
@@ -67,7 +68,7 @@ public class UnpackableMessage {
             throw MessagePackError.incompatibleType
         }
         let length = try self.readLength(formatByte)
-        return Array(try self.reader.readAsData(size: length))
+        return Array(try self.readAsData(size: length))
     }
 
     func unpackAnyInteger() throws -> Any {
@@ -133,22 +134,11 @@ public class UnpackableMessage {
 
     func readInteger<T: FixedWidthInteger>(as: T.Type) throws -> T {
         var bigEndianInt = T()
-        try self.reader.read(into: &bigEndianInt)
+        try self.read(into: &bigEndianInt)
         return T(bigEndian: bigEndianInt)
     }
-}
 
-protocol Readable {
-    mutating func read<T>(into: UnsafeMutablePointer<T>) throws
-    mutating func readAsData(size: UInt) throws -> Data
-    mutating func isEmpty() throws -> Bool // FIXME: does it need to throw?
-}
-
-struct DataReader: Readable {
-    var data: Data
-    var position: Int = 0
-
-    mutating func read<T>(into pointer: UnsafeMutablePointer<T>) throws {
+    func read<T>(into pointer: UnsafeMutablePointer<T>) throws {
         let size = MemoryLayout<T>.size
         let subData = try self.readAsData(size: UInt(size))
         pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
@@ -156,7 +146,7 @@ struct DataReader: Readable {
         }
     }
 
-    mutating func readAsData(size: UInt) throws -> Data {
+    func readAsData(size: UInt) throws -> Data {
         // This could overflow on 32-bit hosts:
         //     let intSize = Int(exactly: size) else { ... }
         //     let endPosition = self.position + intSize
@@ -171,9 +161,5 @@ struct DataReader: Readable {
         let range = self.position ..< endPosition
         self.position = endPosition
         return data[range]
-    }
-
-    func isEmpty() throws -> Bool {
-        self.position == self.data.count
     }
 }

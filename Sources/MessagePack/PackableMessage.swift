@@ -1,14 +1,14 @@
 import struct Foundation.Data
 
 public class PackableMessage {
-    var writer: Writable
+    var data: Data
 
     public init() {
-        self.writer = DataWriter()
+        self.data = Data()
     }
 
     public func bytes() -> [UInt8] {
-        self.writer.bytes()
+        [UInt8](self.data)
     }
 
     @discardableResult
@@ -19,7 +19,7 @@ public class PackableMessage {
 
     public func packBinary(_ bytes: [UInt8]) throws -> Self {
         try self.writeHeader(forType: .binary, length: UInt(bytes.count))
-        try self.writer.write(data: Data(bytes))
+        try self.write(data: Data(bytes))
         return self
     }
 
@@ -87,33 +87,17 @@ public class PackableMessage {
 
     func writeInteger<T: FixedWidthInteger>(_ value: T) throws {
         var bigEndian = T(bigEndian: value) // FIXME immutable won't work
-        try self.writer.write(contentsOf: &bigEndian)
-    }
-}
-
-protocol Writable {
-    mutating func write<T>(contentsOf: UnsafePointer<T>) throws
-    mutating func write(data: Data) throws
-    func bytes() -> [UInt8]
-}
-
-struct DataWriter: Writable {
-    var data: Data
-
-    init() {
-        self.data = Data()
+        try self.write(contentsOf: &bigEndian)
     }
 
-    mutating func write<T>(contentsOf pointer: UnsafePointer<T>) throws {
+    func write<T>(contentsOf pointer: UnsafePointer<T>) throws {
         let size = MemoryLayout<T>.size
         pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
             self.data.append($0, count: size)
         }
     }
 
-    mutating func write(data: Data) throws {
+    func write(data: Data) throws {
         self.data.append(data)
     }
-
-    func bytes() -> [UInt8] { [UInt8](self.data) }
 }

@@ -147,7 +147,7 @@ extension String: MessagePackCompatible {
             throw MessagePackError.incompatibleType
         }
         let length = try message.readLength(formatByte)
-        let data = try message.reader.readAsData(size: length)
+        let data = try message.readAsData(size: length)
         guard let string = String(data: data, encoding: .utf8) else {
             throw MessagePackError.invalidUtf8String
         }
@@ -159,7 +159,7 @@ extension String: MessagePackCompatible {
             throw MessagePackError.invalidUtf8String
         }
         try message.writeHeader(forType: .string, length: UInt(data.count))
-        try message.writer.write(data: data)
+        try message.write(data: data)
     }
 }
 
