@@ -18,13 +18,13 @@ final class MessagePackTests: XCTestCase {
             let context = "while packing \(T.self) value \"\($0.value)\""
             let message = PackableMessage()
             XCTAssertNoThrow(try message.pack($0.value), context)
-            XCTAssertEqual(Bytes($0.packedValue),
-                           Bytes(message.bytes()), context)
+            XCTAssertEqual(StringConvertibleData($0.packedValue),
+                           StringConvertibleData(message.data), context)
         }
         try dataset.withAllVariants {
             let context = "while unpacking variant \($0.variant) of " +
                 "\(T.self) value \"\($0.value)\""
-            let message = UnpackableMessage(fromBytes: $0.packedValue)
+            let message = UnpackableMessage(fromData: $0.packedValue)
             XCTAssertEqual($0.value, try message.unpack(), context)
         }
     }
@@ -34,18 +34,16 @@ final class MessagePackTests: XCTestCase {
     ]
 }
 
-// A simple wrapper for a byte array which provides a human-readable
-// description when equality assertion fails and imposes no runtime cost
-// otherwise.
-// FIXME: Needs a less common name
-struct Bytes: Equatable, CustomStringConvertible {
-    let bytes: [UInt8]
+// A simple wrapper for Data which provides a human-readable description when
+// equality assertion fails and imposes no runtime cost otherwise.
+struct StringConvertibleData: Equatable, CustomStringConvertible {
+    let data: Data
 
-    init(_ bytes: [UInt8]) {
-        self.bytes = bytes
+    init(_ data: Data) {
+        self.data = data
     }
 
     var description: String {
-        bytes.lazy.map { String(format: "%02x", $0) }.joined(separator: "-")
+        data.lazy.map { String(format: "%02x", $0) }.joined(separator: "-")
     }
 }

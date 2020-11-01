@@ -1,14 +1,10 @@
 import struct Foundation.Data
 
 public class PackableMessage {
-    var data: Data
+    public internal(set) var data: Data
 
     public init() {
         self.data = Data()
-    }
-
-    public func bytes() -> [UInt8] {
-        [UInt8](self.data)
     }
 
     @discardableResult

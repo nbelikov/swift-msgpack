@@ -12,10 +12,6 @@ public class UnpackableMessage {
         self.data = data
     }
 
-    public convenience init(fromBytes bytes: [UInt8]) {
-        self.init(fromData: Data(bytes))
-    }
-
     // FIXME: This recursive implementation can be easily tricked by malicious
     // user input into exhausting stack memory by recursively nesting an array
     // or a map deep enough.
