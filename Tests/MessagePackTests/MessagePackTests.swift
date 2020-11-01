@@ -10,13 +10,23 @@ final class MessagePackTests: XCTestCase {
         // TODO: Test on various integer types
         self.runDatasetTests(positiveIntDataset)
         self.runDatasetTests(negativeIntDataset)
-        // TODO: Test Float
         // TODO: Add tests for +-infinity and NaNs
-        self.runDatasetTests(floatDataset)
+        self.runDatasetTests(doubleDataset)
         self.runDatasetTests(stringDataset)
         // TODO: Test array
         // TODO: Test map
         // TODO: Test extersions
+    }
+
+    func testFloatDataset() {
+        for entry in doubleDataset.entries {
+            guard entry.packedValues.count > 1 else { continue }
+            let float = Float(entry.value)
+            let packedValue = entry.packedValues[1]
+            self.doTestPack(value: float, packedValue: packedValue)
+            self.doTestUnpack(value: float, variant: 1,
+                              packedValue: packedValue)
+        }
     }
 
     func runDatasetTests<T>(_ dataset: Dataset<T>) {
@@ -43,6 +53,7 @@ final class MessagePackTests: XCTestCase {
 
     static var allTests = [
         ("testDataset", testDataset),
+        ("testFloatDataset", testFloatDataset),
     ]
 }
 

@@ -68,9 +68,9 @@ let binaryDataset = Dataset<Data>([
     ]),
 ])
 
-// NOTE: float32 and float64 formats are commented out for positiveIntDataset
-// and negativeIntDataset since this implementation doesn't allow implicit
-// conversions between floating point and integral values.
+// NOTE: float32 and float64 formats were moved from positiveIntDataset and
+// negativeIntDataset to doubleDataset since this implementation doesn't allow
+// implicit conversions between floating point and integral values.
 // NOTE: The contents of 23.number-bignum.yaml are split and appended to
 // positiveIntDataset and negativeIntDataset since the test runner would
 // process 64-bit integer data exactly the same way as it would with 32-bit.
@@ -91,8 +91,6 @@ let positiveIntDataset = Dataset<UInt64>([
         "d1-00-00",                    // signed int16
         "d2-00-00-00-00",              // signed int32
         "d3-00-00-00-00-00-00-00-00",  // signed int64
-        // "ca-00-00-00-00",              // float
-        // "cb-00-00-00-00-00-00-00-00",  // double
     ]),
 
     (1, [ // 0x0001
@@ -105,8 +103,6 @@ let positiveIntDataset = Dataset<UInt64>([
         "d1-00-01",
         "d2-00-00-00-01",
         "d3-00-00-00-00-00-00-00-01",
-        // "ca-3f-80-00-00",
-        // "cb-3f-f0-00-00-00-00-00-00",
     ]),
 
     (127, [ // 0x007F
@@ -176,30 +172,23 @@ let positiveIntDataset = Dataset<UInt64>([
         "ce-80-00-00-00",              // unsigned int32
         "cf-00-00-00-00-80-00-00-00",  // unsigned int64
         "d3-00-00-00-00-80-00-00-00",  // signed int64
-        // "ca-4f-00-00-00",              // float
-        // "cb-41-e0-00-00-00-00-00-00",  // double
     ]),
 
     (4294967295, [ // 0xFFFFFFFF
         "ce-ff-ff-ff-ff",
         "cf-00-00-00-00-ff-ff-ff-ff",
         "d3-00-00-00-00-ff-ff-ff-ff",
-        // "cb-41-ef-ff-ff-ff-e0-00-00",
     ]),
 
     // 23.number-bignum.yaml:
     (4294967296, [ // +0x0000000100000000
         "d3-00-00-00-01-00-00-00-00",  // signed int64
         "cf-00-00-00-01-00-00-00-00",  // unsigned int64
-        // "ca-4f-80-00-00",              // float
-        // "cb-41-f0-00-00-00-00-00-00",  // double
     ]),
 
     (281474976710656, [ // +0x0001000000000000
         "d3-00-01-00-00-00-00-00-00",  // signed int64
         "cf-00-01-00-00-00-00-00-00",  // unsigned int64
-        // "ca-57-80-00-00",              // float
-        // "cb-42-f0-00-00-00-00-00-00",  // double
     ]),
 
     (9223372036854775807, [ // +0x7FFFFFFFFFFFFFFF
@@ -224,8 +213,6 @@ let negativeIntDataset = Dataset<Int64>([
         "d1-ff-ff",                    // signed int16
         "d2-ff-ff-ff-ff",              // signed int32
         "d3-ff-ff-ff-ff-ff-ff-ff-ff",  // signed int64
-        // "ca-bf-80-00-00",              // float
-        // "cb-bf-f0-00-00-00-00-00-00",  // double
     ]),
 
     (-32, [ // 0xFFFFFFE0
@@ -234,8 +221,6 @@ let negativeIntDataset = Dataset<Int64>([
         "d1-ff-e0",
         "d2-ff-ff-ff-e0",
         "d3-ff-ff-ff-ff-ff-ff-ff-e0",
-        // "ca-c2-00-00-00",
-        // "cb-c0-40-00-00-00-00-00-00",
     ]),
 
     (-33, [ // 0xFFFFFFDF
@@ -272,19 +257,15 @@ let negativeIntDataset = Dataset<Int64>([
     (-2147483648, [ // 0x80000000
         "d2-80-00-00-00",
         "d3-ff-ff-ff-ff-80-00-00-00",
-        // "cb-c1-e0-00-00-00-00-00-00",
     ]),
 
     // 23.number-bignum.yaml:
     (-4294967296, [ // -0x0000000100000000
         "d3-ff-ff-ff-ff-00-00-00-00",  // signed int64
-        // "cb-c1-f0-00-00-00-00-00-00",  // double
     ]),
 
     (-281474976710656, [ // -0x0001000000000000
         "d3-ff-ff-00-00-00-00-00-00",  // signed int64
-        // "ca-d7-80-00-00",              // float
-        // "cb-c2-f0-00-00-00-00-00-00",  // double
     ]),
 
     (-9223372036854775807, [ // -0x7FFFFFFFFFFFFFFF
@@ -296,16 +277,75 @@ let negativeIntDataset = Dataset<Int64>([
     ]),
 ])
 
-let floatDataset = Dataset<Float>([
+// NOTE: The test runner expects to find packed double as the first variant and
+// packed float as the second, so the original order was changed.
+// NOTE: float32 and float64 formats were moved here from integer datasets.
+
+let doubleDataset = Dataset<Double>([
     // 22.number-float.yaml:
     (0.5, [
-        "ca-3f-00-00-00",
         "cb-3f-e0-00-00-00-00-00-00",
+        "ca-3f-00-00-00",
     ]),
 
     (-0.5, [
-        "ca-bf-00-00-00",
         "cb-bf-e0-00-00-00-00-00-00",
+        "ca-bf-00-00-00",
+    ]),
+
+    // 20.number-positive.yaml:
+    (0, [ // 0x0000
+        "cb-00-00-00-00-00-00-00-00",  // double
+        "ca-00-00-00-00",              // float
+    ]),
+
+    (1, [ // 0x0001
+        "cb-3f-f0-00-00-00-00-00-00",
+        "ca-3f-80-00-00",
+    ]),
+
+    (2147483648, [ // 0x80000000
+        "cb-41-e0-00-00-00-00-00-00",  // double
+        "ca-4f-00-00-00",              // float
+    ]),
+
+    (4294967295, [ // 0xFFFFFFFF
+        "cb-41-ef-ff-ff-ff-e0-00-00",
+    ]),
+
+    // 21.number-negative.yaml:
+    (-1, [ // 0xFFFFFFFF
+        "cb-bf-f0-00-00-00-00-00-00",  // double
+        "ca-bf-80-00-00",              // float
+    ]),
+
+    (-32, [ // 0xFFFFFFE0
+        "cb-c0-40-00-00-00-00-00-00",
+        "ca-c2-00-00-00",
+    ]),
+
+    (-2147483648, [ // 0x80000000
+        "cb-c1-e0-00-00-00-00-00-00",
+    ]),
+
+    // 23.number-bignum.yaml:
+    (4294967296, [ // +0x0000000100000000
+        "cb-41-f0-00-00-00-00-00-00",  // double
+        "ca-4f-80-00-00",              // float
+    ]),
+
+    (281474976710656, [ // +0x0001000000000000
+        "cb-42-f0-00-00-00-00-00-00",  // double
+        "ca-57-80-00-00",              // float
+    ]),
+
+    (-4294967296, [ // -0x0000000100000000
+        "cb-c1-f0-00-00-00-00-00-00",  // double
+    ]),
+
+    (-281474976710656, [ // -0x0001000000000000
+        "cb-c2-f0-00-00-00-00-00-00",  // double
+        "ca-d7-80-00-00",              // float
     ]),
 ])
 
