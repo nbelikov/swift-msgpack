@@ -27,6 +27,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+import struct Foundation.Data
+
 let nilDataset = Dataset<Int?>([
     // 10.nil.yaml:
     (nil, [
@@ -45,21 +47,21 @@ let boolDataset = Dataset([
     ]),
 ])
 
-let binaryDataset = Dataset<[UInt8]>([
+let binaryDataset = Dataset<Data>([
     // 12.binary.yaml:
-    ([], [ // [] - empty
+    (Data(), [ // [] - empty
         "c4-00",
         "c5-00-00",
         "c6-00-00-00-00",
     ]),
 
-    ([0x01], [ // [1]
+    (Data([0x01]), [ // [1]
         "c4-01-01",
         "c5-00-01-01",
         "c6-00-00-00-01-01",
     ]),
 
-    ([0x00, 0xff], [ // [0, 255]
+    (Data([0x00, 0xff]), [ // [0, 255]
         "c4-02-00-ff",
         "c5-00-02-00-ff",
         "c6-00-00-00-02-00-ff",

@@ -17,12 +17,6 @@ public class PackableMessage {
         return self
     }
 
-    public func packBinary(_ bytes: [UInt8]) throws -> Self {
-        try self.writeHeader(forType: .binary, length: UInt(bytes.count))
-        try self.write(data: Data(bytes))
-        return self
-    }
-
     func writeHeader(forType type: MessagePackType, length: UInt) throws {
         guard length <= UInt32.max else {
             throw MessagePackError.objectTooBig
