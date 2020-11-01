@@ -1,7 +1,1 @@
-import XCTest
-
-import MessagePackTests
-
-var tests = [XCTestCaseEntry]()
-tests += MessagePackTests.allTests()
-XCTMain(tests)
+#error("Please run tests with `swift test --enable-test-discovery`")

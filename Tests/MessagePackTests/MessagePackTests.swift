@@ -50,11 +50,6 @@ final class MessagePackTests: XCTestCase {
         let message = UnpackableMessage(fromData: packedValue)
         XCTAssertEqual(value, try message.unpack(), context)
     }
-
-    static var allTests = [
-        ("testDataset", testDataset),
-        ("testFloatDataset", testFloatDataset),
-    ]
 }
 
 // A simple wrapper for Data which provides a human-readable description when
