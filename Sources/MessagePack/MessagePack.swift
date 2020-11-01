@@ -1,4 +1,4 @@
-enum MessagePackError: Error {
+public enum MessagePackError: Error {
     case invalidMessage
     case unexpectedEndOfMessage
     case invalidUtf8String
