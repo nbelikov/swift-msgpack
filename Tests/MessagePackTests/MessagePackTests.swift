@@ -17,7 +17,8 @@ final class MessagePackTests: XCTestCase {
 
     func testBinaryDataset() {
         // TODO: Test unpacking strings as Data
-        self.runDatasetTests(binaryDataset)
+        binaryDataset.withFirstVariant(self.doTestPackBinary)
+        binaryDataset.withAllVariants(self.doTestUnpackBinary)
     }
 
     func testIntegerDatasets() {
@@ -117,6 +118,24 @@ final class MessagePackTests: XCTestCase {
             "\(T.self) value \"\(value)\""
         let message = UnpackableMessage(from: packedValue)
         XCTAssertEqual(value, try message.unpack(), context)
+    }
+
+    // FIXME this is almost a verbatim copy of doTestPack
+    func doTestPackBinary(value: [UInt8], packedValue: [UInt8]) {
+        let context = "while packing value \"\(value)\""
+        let message = PackableMessage()
+        XCTAssertNoThrow(try message.packBinary(value), context)
+        XCTAssertEqual(StringConvertibleBytes(packedValue),
+                       StringConvertibleBytes(message.bytes), context)
+    }
+
+    // FIXME this is almost a verbatim copy of doTestUnpack
+    func doTestUnpackBinary(value: [UInt8], variant: Int, packedValue: [UInt8])
+    {
+        let context = "while unpacking variant \(variant) of " +
+            "value \"\(value)\""
+        let message = UnpackableMessage(from: packedValue)
+        XCTAssertEqual(value, try message.unpackBinary(), context)
     }
 
     func doTestUnpackFailure<T, U>(

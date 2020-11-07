@@ -1,5 +1,3 @@
-import struct Foundation.Data
-
 public class UnpackableMessage {
     var bytes: [UInt8]
     var position: Int = 0
@@ -23,7 +21,7 @@ public class UnpackableMessage {
         case .bool:    return try self.unpack() as Bool
         case .float:   return try self.unpack() as Double
         case .string:  return try self.unpack() as String
-        case .binary:  return try self.unpack() as Data
+        case .binary:  return try self.unpackBinary()
         case .array:   return try self.unpackAnyArray()
         case .map:     return try self.unpackAnyMap()
         case .`extension`: return nil // FIXME
@@ -32,6 +30,17 @@ public class UnpackableMessage {
 
     public func unpack<T: MessagePackCompatible>() throws -> T {
         try T(unpackFrom: self)
+    }
+
+    // TODO: Should this return ArraySlice<UInt8> instead?
+    public func unpackBinary() throws -> [UInt8] {
+        let formatByte = try self.readFormatByte()
+        let type = MessagePackType(formatByte)
+        guard type == .binary || type == .string else {
+            throw MessagePackError.incompatibleType
+        }
+        let length = try self.readLength(formatByte)
+        return try Array(self.readBytes(size: length))
     }
 
     func peekFormatByte() throws -> FormatByte {

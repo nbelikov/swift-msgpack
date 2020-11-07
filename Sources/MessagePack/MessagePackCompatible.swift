@@ -1,4 +1,4 @@
-import struct Foundation.Data
+import Foundation // Provides String.init(bytes:encoding:)
 
 public protocol MessagePackCompatible {
     init(unpackFrom: UnpackableMessage) throws
@@ -139,23 +139,6 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
         } else {
             preconditionFailure()
         }
-    }
-}
-
-extension Data: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        let type = MessagePackType(formatByte)
-        guard type == .binary || type == .string else {
-            throw MessagePackError.incompatibleType
-        }
-        let length = try message.readLength(formatByte)
-        self = Data(try message.readBytes(size: length))
-    }
-
-    public func pack(to message: PackableMessage) throws {
-        try message.writeHeader(forType: .binary, length: UInt(self.count))
-        message.write(bytes: self)
     }
 }
 

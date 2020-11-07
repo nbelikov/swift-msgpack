@@ -9,6 +9,12 @@ public class PackableMessage {
         return self
     }
 
+    public func packBinary<C>(_ bytes: C) throws
+    where C: Collection, C.Element == UInt8 {
+        try self.writeHeader(forType: .binary, length: UInt(bytes.count))
+        self.write(bytes: bytes)
+    }
+
     func writeHeader(forType type: MessagePackType, length: UInt) throws {
         guard length <= UInt32.max else {
             throw MessagePackError.objectTooBig
