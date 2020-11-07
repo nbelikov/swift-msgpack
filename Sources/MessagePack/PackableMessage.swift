@@ -1,13 +1,7 @@
-import struct Foundation.Data
-
 public class PackableMessage {
     public internal(set) var bytes: [UInt8] = []
 
     public init() { }
-
-    public var data: Data { // FIXME Remove!
-        Data(self.bytes)
-    }
 
     @discardableResult
     public func pack<T: MessagePackCompatible>(_ object: T) throws -> Self {
