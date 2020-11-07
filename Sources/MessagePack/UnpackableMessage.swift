@@ -119,17 +119,15 @@ public class UnpackableMessage {
     }
 
     func readInteger<T: FixedWidthInteger>(as: T.Type) throws -> T {
-        var bigEndianInt = T()
-        try self.read(into: &bigEndianInt)
-        return T(bigEndian: bigEndianInt)
-    }
-
-    func read<T>(into pointer: UnsafeMutablePointer<T>) throws {
         let size = MemoryLayout<T>.size
-        let subData = try self.readAsData(size: UInt(size))
-        pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
-            subData.copyBytes(to: $0, count: size)
+        let bytes: [UInt8] = Array(try self.readAsData(size: UInt(size)))
+        var bigEndian = T()
+        withUnsafeMutableBytes(of: &bigEndian) {
+            for i in 0 ..< size {
+                $0[i] = bytes[i]
+            }
         }
+        return T(bigEndian: bigEndian)
     }
 
     func readAsData(size: UInt) throws -> Data {

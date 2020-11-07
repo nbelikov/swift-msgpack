@@ -75,14 +75,9 @@ public class PackableMessage {
     }
 
     func writeInteger<T: FixedWidthInteger>(_ value: T) {
-        var bigEndian = T(bigEndian: value) // FIXME immutable won't work
-        self.write(contentsOf: &bigEndian)
-    }
-
-    func write<T>(contentsOf pointer: UnsafePointer<T>) {
-        let size = MemoryLayout<T>.size
-        pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
-            self.data.append($0, count: size)
+        let bigEndian = T(bigEndian: value)
+        withUnsafeBytes(of: bigEndian) {
+            self.write(data: Data($0))
         }
     }
 
