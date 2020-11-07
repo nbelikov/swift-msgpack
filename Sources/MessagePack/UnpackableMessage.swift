@@ -1,15 +1,19 @@
 import struct Foundation.Data
 
 public class UnpackableMessage {
-    var data: Data
+    var bytes: [UInt8]
     var position: Int = 0
 
     // This property should be directly accessed only by self.readFormatByte()
     // and self.peekFormatByte()
     var _formatByte: FormatByte?
 
-    public init(fromData data: Data) {
-        self.data = data
+    public init(from bytes: [UInt8]) {
+        self.bytes = bytes
+    }
+
+    public convenience init(fromData data: Data) { // FIXME Remove!
+        self.init(from: Array(data))
     }
 
     // FIXME: This recursive implementation can be easily tricked by malicious
@@ -54,7 +58,7 @@ public class UnpackableMessage {
     }
 
     public func isEmpty() -> Bool {
-        self.position == self.data.count
+        self.position == self.bytes.count
     }
 
     func unpackAnyInteger() throws -> Any {
@@ -120,22 +124,22 @@ public class UnpackableMessage {
 
     func readInteger<T: FixedWidthInteger>(as: T.Type) throws -> T {
         let size = MemoryLayout<T>.size
-        let bytes: [UInt8] = Array(try self.readAsData(size: UInt(size)))
+        let slice = try self.readBytes(size: UInt(size))
         var bigEndian = T()
         withUnsafeMutableBytes(of: &bigEndian) {
             for i in 0 ..< size {
-                $0[i] = bytes[i]
+                $0[i] = slice[slice.startIndex + i]
             }
         }
         return T(bigEndian: bigEndian)
     }
 
-    func readAsData(size: UInt) throws -> Data {
+    func readBytes(size: UInt) throws -> ArraySlice<UInt8> {
         // This could overflow on 32-bit hosts:
         //     let intSize = Int(exactly: size) else { ... }
         //     let endPosition = self.position + intSize
-        //     guard endPosition <= self.data.count else { ... }
-        let remaining = self.data.count - self.position
+        //     guard endPosition <= self.bytes.count else { ... }
+        let remaining = self.bytes.count - self.position
         guard size <= remaining else {
             throw MessagePackError.unexpectedEndOfMessage
         }
@@ -144,6 +148,6 @@ public class UnpackableMessage {
         let endPosition = self.position + Int(size)
         let range = self.position ..< endPosition
         self.position = endPosition
-        return data[range]
+        return bytes[range]
     }
 }

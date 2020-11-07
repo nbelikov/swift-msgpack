@@ -1,10 +1,12 @@
 import struct Foundation.Data
 
 public class PackableMessage {
-    public internal(set) var data: Data
+    public internal(set) var bytes: [UInt8] = []
 
-    public init() {
-        self.data = Data()
+    public init() { }
+
+    public var data: Data { // FIXME Remove!
+        Data(self.bytes)
     }
 
     @discardableResult
@@ -77,11 +79,11 @@ public class PackableMessage {
     func writeInteger<T: FixedWidthInteger>(_ value: T) {
         let bigEndian = T(bigEndian: value)
         withUnsafeBytes(of: bigEndian) {
-            self.write(data: Data($0))
+            self.write(bytes: $0)
         }
     }
 
-    func write(data: Data) {
-        self.data.append(data)
+    func write<S>(bytes: S) where S: Sequence, S.Element == UInt8 {
+        self.bytes += bytes
     }
 }
