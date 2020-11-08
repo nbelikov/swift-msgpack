@@ -1,16 +1,18 @@
-import struct Foundation.Data
-
 public class PackableMessage {
-    public internal(set) var data: Data
+    public internal(set) var bytes: [UInt8] = []
 
-    public init() {
-        self.data = Data()
-    }
+    public init() { }
 
     @discardableResult
     public func pack<T: MessagePackCompatible>(_ object: T) throws -> Self {
         try object.pack(to: self)
         return self
+    }
+
+    public func packBinary<C>(_ bytes: C) throws
+    where C: Collection, C.Element == UInt8 {
+        try self.writeHeader(forType: .binary, length: UInt(bytes.count))
+        self.write(bytes: bytes)
     }
 
     func writeHeader(forType type: MessagePackType, length: UInt) throws {
@@ -75,18 +77,13 @@ public class PackableMessage {
     }
 
     func writeInteger<T: FixedWidthInteger>(_ value: T) {
-        var bigEndian = T(bigEndian: value) // FIXME immutable won't work
-        self.write(contentsOf: &bigEndian)
-    }
-
-    func write<T>(contentsOf pointer: UnsafePointer<T>) {
-        let size = MemoryLayout<T>.size
-        pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
-            self.data.append($0, count: size)
+        let bigEndian = T(bigEndian: value)
+        withUnsafeBytes(of: bigEndian) {
+            self.write(bytes: $0)
         }
     }
 
-    func write(data: Data) {
-        self.data.append(data)
+    func write<S>(bytes: S) where S: Sequence, S.Element == UInt8 {
+        self.bytes += bytes
     }
 }

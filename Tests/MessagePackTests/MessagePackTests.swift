@@ -17,7 +17,8 @@ final class MessagePackTests: XCTestCase {
 
     func testBinaryDataset() {
         // TODO: Test unpacking strings as Data
-        self.runDatasetTests(binaryDataset)
+        binaryDataset.withFirstVariant(self.doTestPackBinary)
+        binaryDataset.withAllVariants(self.doTestUnpackBinary)
     }
 
     func testIntegerDatasets() {
@@ -102,46 +103,65 @@ final class MessagePackTests: XCTestCase {
         dataset.withAllVariants(self.doTestUnpack)
     }
 
-    func doTestPack<T>(value: T, packedValue: Data)
+    func doTestPack<T>(value: T, packedValue: [UInt8])
     where T: MessagePackCompatible & Equatable {
         let context = "while packing \(T.self) value \"\(value)\""
         let message = PackableMessage()
         XCTAssertNoThrow(try message.pack(value), context)
-        XCTAssertEqual(StringConvertibleData(packedValue),
-                       StringConvertibleData(message.data), context)
+        XCTAssertEqual(StringConvertibleBytes(packedValue),
+                       StringConvertibleBytes(message.bytes), context)
     }
 
-    func doTestUnpack<T>(value: T, variant: Int, packedValue: Data)
+    func doTestUnpack<T>(value: T, variant: Int, packedValue: [UInt8])
     where T: MessagePackCompatible & Equatable {
         let context = "while unpacking variant \(variant) of " +
             "\(T.self) value \"\(value)\""
-        let message = UnpackableMessage(fromData: packedValue)
+        let message = UnpackableMessage(from: packedValue)
         XCTAssertEqual(value, try message.unpack(), context)
     }
 
+    // FIXME this is almost a verbatim copy of doTestPack
+    func doTestPackBinary(value: [UInt8], packedValue: [UInt8]) {
+        let context = "while packing value \"\(value)\""
+        let message = PackableMessage()
+        XCTAssertNoThrow(try message.packBinary(value), context)
+        XCTAssertEqual(StringConvertibleBytes(packedValue),
+                       StringConvertibleBytes(message.bytes), context)
+    }
+
+    // FIXME this is almost a verbatim copy of doTestUnpack
+    func doTestUnpackBinary(value: [UInt8], variant: Int, packedValue: [UInt8])
+    {
+        let context = "while unpacking variant \(variant) of " +
+            "value \"\(value)\""
+        let message = UnpackableMessage(from: packedValue)
+        XCTAssertEqual(value, try message.unpackBinary(), context)
+    }
+
     func doTestUnpackFailure<T, U>(
-        as type: T.Type, value: U, variant: Int, packedValue: Data,
+        as type: T.Type, value: U, variant: Int, packedValue: [UInt8],
         expectedError: MessagePackError
     ) where T: MessagePackCompatible & Equatable {
         let context = "while unpacking variant \(variant) of " +
             "value \"\(value)\" as \(T.self)"
-        let message = UnpackableMessage(fromData: packedValue)
+        let message = UnpackableMessage(from: packedValue)
         XCTAssertThrowsError(try message.unpack() as T, context) {
             XCTAssertEqual(expectedError, $0 as? MessagePackError, context)
         }
     }
 }
 
-// A simple wrapper for Data which provides a human-readable description when
-// equality assertion fails and imposes no runtime cost otherwise.
-struct StringConvertibleData: Equatable, CustomStringConvertible {
-    let data: Data
+// A simple wrapper for [UInt8] which provides a human-readable description
+// when equality assertion fails and imposes no runtime cost otherwise.
+struct StringConvertibleBytes: Equatable, CustomStringConvertible {
+    let bytes: [UInt8]
 
-    init(_ data: Data) {
-        self.data = data
+    init(_ bytes: [UInt8]) {
+        self.bytes = bytes
     }
 
     var description: String {
-        data.lazy.map { String(format: "%02x", $0) }.joined(separator: "-")
+        self.bytes.lazy.map { String(format: "%02x", $0) }
+            .joined(separator: "-")
     }
 }

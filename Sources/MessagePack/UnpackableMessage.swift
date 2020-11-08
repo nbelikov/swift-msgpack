@@ -1,15 +1,13 @@
-import struct Foundation.Data
-
 public class UnpackableMessage {
-    var data: Data
+    var bytes: [UInt8]
     var position: Int = 0
 
     // This property should be directly accessed only by self.readFormatByte()
     // and self.peekFormatByte()
     var _formatByte: FormatByte?
 
-    public init(fromData data: Data) {
-        self.data = data
+    public init(from bytes: [UInt8]) {
+        self.bytes = bytes
     }
 
     // FIXME: This recursive implementation can be easily tricked by malicious
@@ -23,7 +21,7 @@ public class UnpackableMessage {
         case .bool:    return try self.unpack() as Bool
         case .float:   return try self.unpack() as Double
         case .string:  return try self.unpack() as String
-        case .binary:  return try self.unpack() as Data
+        case .binary:  return try self.unpackBinary()
         case .array:   return try self.unpackAnyArray()
         case .map:     return try self.unpackAnyMap()
         case .`extension`: return nil // FIXME
@@ -32,6 +30,17 @@ public class UnpackableMessage {
 
     public func unpack<T: MessagePackCompatible>() throws -> T {
         try T(unpackFrom: self)
+    }
+
+    // TODO: Should this return ArraySlice<UInt8> instead?
+    public func unpackBinary() throws -> [UInt8] {
+        let formatByte = try self.readFormatByte()
+        let type = MessagePackType(formatByte)
+        guard type == .binary || type == .string else {
+            throw MessagePackError.incompatibleType
+        }
+        let length = try self.readLength(formatByte)
+        return try Array(self.readBytes(size: length))
     }
 
     func peekFormatByte() throws -> FormatByte {
@@ -54,7 +63,7 @@ public class UnpackableMessage {
     }
 
     public func isEmpty() -> Bool {
-        self.position == self.data.count
+        self.position == self.bytes.count
     }
 
     func unpackAnyInteger() throws -> Any {
@@ -119,25 +128,23 @@ public class UnpackableMessage {
     }
 
     func readInteger<T: FixedWidthInteger>(as: T.Type) throws -> T {
-        var bigEndianInt = T()
-        try self.read(into: &bigEndianInt)
-        return T(bigEndian: bigEndianInt)
-    }
-
-    func read<T>(into pointer: UnsafeMutablePointer<T>) throws {
         let size = MemoryLayout<T>.size
-        let subData = try self.readAsData(size: UInt(size))
-        pointer.withMemoryRebound(to: UInt8.self, capacity: size) {
-            subData.copyBytes(to: $0, count: size)
+        let slice = try self.readBytes(size: UInt(size))
+        var bigEndian = T()
+        withUnsafeMutableBytes(of: &bigEndian) {
+            for i in 0 ..< size {
+                $0[i] = slice[slice.startIndex + i]
+            }
         }
+        return T(bigEndian: bigEndian)
     }
 
-    func readAsData(size: UInt) throws -> Data {
+    func readBytes(size: UInt) throws -> ArraySlice<UInt8> {
         // This could overflow on 32-bit hosts:
         //     let intSize = Int(exactly: size) else { ... }
         //     let endPosition = self.position + intSize
-        //     guard endPosition <= self.data.count else { ... }
-        let remaining = self.data.count - self.position
+        //     guard endPosition <= self.bytes.count else { ... }
+        let remaining = self.bytes.count - self.position
         guard size <= remaining else {
             throw MessagePackError.unexpectedEndOfMessage
         }
@@ -146,6 +153,6 @@ public class UnpackableMessage {
         let endPosition = self.position + Int(size)
         let range = self.position ..< endPosition
         self.position = endPosition
-        return data[range]
+        return bytes[range]
     }
 }

@@ -1,4 +1,4 @@
-import struct Foundation.Data
+import Foundation // Provides String.init(bytes:encoding:)
 
 public protocol MessagePackCompatible {
     init(unpackFrom: UnpackableMessage) throws
@@ -142,23 +142,6 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
     }
 }
 
-extension Data: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        let type = MessagePackType(formatByte)
-        guard type == .binary || type == .string else {
-            throw MessagePackError.incompatibleType
-        }
-        let length = try message.readLength(formatByte)
-        self = try message.readAsData(size: length)
-    }
-
-    public func pack(to message: PackableMessage) throws {
-        try message.writeHeader(forType: .binary, length: UInt(self.count))
-        message.write(data: self)
-    }
-}
-
 extension String: MessagePackCompatible {
     public init(unpackFrom message: UnpackableMessage) throws {
         let formatByte = try message.readFormatByte()
@@ -166,8 +149,8 @@ extension String: MessagePackCompatible {
             throw MessagePackError.incompatibleType
         }
         let length = try message.readLength(formatByte)
-        let data = try message.readAsData(size: length)
-        guard let string = String(data: data, encoding: .utf8) else {
+        let bytes = try message.readBytes(size: length)
+        guard let string = String(bytes: bytes, encoding: .utf8) else {
             throw MessagePackError.invalidUtf8String
         }
         self = string
@@ -176,7 +159,7 @@ extension String: MessagePackCompatible {
     public func pack(to message: PackableMessage) throws {
         let length = UInt(self.utf8.count)
         try message.writeHeader(forType: .string, length: length)
-        message.write(data: Data(self.utf8)) // TODO: Avoid intermediate Data
+        message.write(bytes: self.utf8)
     }
 }
 
