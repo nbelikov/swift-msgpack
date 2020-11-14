@@ -20,10 +20,12 @@ public class PackableMessage {
         return self
     }
 
-    public func packBinary<C>(_ bytes: C) throws
+    @discardableResult
+    public func packBinary<C>(_ bytes: C) throws -> Self
     where C: Collection, C.Element == UInt8 {
         try self.writeHeader(forType: .binary, length: UInt(bytes.count))
         self.write(bytes: bytes)
+        return self
     }
 
     @discardableResult
