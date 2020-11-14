@@ -1,5 +1,6 @@
 public class PackableMessage {
     public internal(set) var bytes: [UInt8] = []
+    public internal(set) var count: UInt32 = 0
 
     public init() { }
 
@@ -19,10 +20,9 @@ public class PackableMessage {
         guard length <= UInt32.max else {
             throw MessagePackError.objectTooBig
         }
-        if let formatByte = self.singleByteHeader(forType: type,
-                                                  length:  length) {
-            self.writeInteger(formatByte.rawValue)
-            return
+        if let formatByte = self.singleByteHeader(
+            forType: type, length: length) {
+            return self.writeFormatByte(formatByte)
         }
         let formats: [FormatByte.Format?]
         switch type {
@@ -69,11 +69,16 @@ public class PackableMessage {
     }
 
     func writeFormatByte(_ format: FormatByte.Format) {
-        self.writeInteger(FormatByte(format).rawValue)
+        self.writeFormatByte(FormatByte(format))
     }
 
     func writeFormatByte(_ format: FormatByte.Format, withValue value: Int8) {
-        self.writeInteger(FormatByte(format, withValue: value).rawValue)
+        self.writeFormatByte(FormatByte(format, withValue: value))
+    }
+
+    func writeFormatByte(_ formatByte: FormatByte) {
+        self.writeInteger(formatByte.rawValue)
+        self.count += 1
     }
 
     func writeInteger<T: FixedWidthInteger>(_ value: T) {

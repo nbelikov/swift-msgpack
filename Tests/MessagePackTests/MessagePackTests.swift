@@ -67,6 +67,22 @@ final class MessagePackTests: XCTestCase {
         self.runDatasetTests(stringDataset)
     }
 
+    func testCount() throws {
+        // Individual types are tested in doTestPack(value:packedValue:)
+        let message = PackableMessage()
+        XCTAssertEqual(0, message.count)
+        try message.pack("foo")
+        XCTAssertEqual(1, message.count)
+        try message.pack(true)
+        XCTAssertEqual(2, message.count)
+        try message.pack(nil as Int?) // FIXME
+        XCTAssertEqual(3, message.count)
+        try message.pack([1, 2, 3, 4])
+        XCTAssertEqual(4, message.count)
+        try message.packBinary("foo".utf8)
+        XCTAssertEqual(5, message.count)
+    }
+
     func runIntegerCompatibilityTests<T>(for type: T.Type)
     where T: BinaryInteger & MessagePackCompatible {
         self.runIntegerCompatibilityTests(for: type, on: positiveIntDataset)
@@ -110,6 +126,7 @@ final class MessagePackTests: XCTestCase {
         XCTAssertNoThrow(try message.pack(value), context)
         XCTAssertEqual(StringConvertibleBytes(packedValue),
                        StringConvertibleBytes(message.bytes), context)
+        XCTAssertEqual(1, message.count, context)
     }
 
     func doTestUnpack<T>(value: T, variant: Int, packedValue: [UInt8])
@@ -127,6 +144,7 @@ final class MessagePackTests: XCTestCase {
         XCTAssertNoThrow(try message.packBinary(value), context)
         XCTAssertEqual(StringConvertibleBytes(packedValue),
                        StringConvertibleBytes(message.bytes), context)
+        XCTAssertEqual(1, message.count, context)
     }
 
     // FIXME this is almost a verbatim copy of doTestUnpack
