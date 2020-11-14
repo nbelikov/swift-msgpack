@@ -75,7 +75,7 @@ final class MessagePackTests: XCTestCase {
         XCTAssertEqual(1, message.count)
         try message.pack(true)
         XCTAssertEqual(2, message.count)
-        try message.pack(nil as Int?) // FIXME
+        message.packNil()
         XCTAssertEqual(3, message.count)
         try message.pack([1, 2, 3, 4])
         XCTAssertEqual(4, message.count)

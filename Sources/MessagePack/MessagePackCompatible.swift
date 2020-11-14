@@ -18,7 +18,7 @@ where Wrapped: MessagePackCompatible {
 
     public func pack(to message: PackableMessage) throws {
         switch self {
-        case .none:              message.writeFormatByte(.`nil`)
+        case .none: message.packNil()
         case .some(let wrapped): try message.pack(wrapped)
         }
     }

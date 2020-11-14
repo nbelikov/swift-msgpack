@@ -21,6 +21,12 @@ public class PackableMessage {
     }
 
     @discardableResult
+    public func packNil() -> Self {
+        self.writeFormatByte(.`nil`)
+        return self
+    }
+
+    @discardableResult
     public func packBinary<C>(_ bytes: C) throws -> Self
     where C: Collection, C.Element == UInt8 {
         try self.writeHeader(forType: .binary, length: UInt(bytes.count))
