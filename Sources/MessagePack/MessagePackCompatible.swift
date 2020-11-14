@@ -172,9 +172,10 @@ extension Array: MessagePackCompatible where Element: MessagePackCompatible {
     }
 
     public func pack(to message: PackableMessage) throws {
-        try message.writeHeader(forType: .array, length: UInt(self.count))
-        for element in self {
-            try message.pack(element)
+        try message.packArray(count: UInt(self.count)) {
+            for element in self {
+                try message.pack(element)
+            }
         }
     }
 }
@@ -201,10 +202,11 @@ where Key: MessagePackCompatible, Value: MessagePackCompatible {
     }
 
     public func pack(to message: PackableMessage) throws {
-        try message.writeHeader(forType: .array, length: UInt(self.count))
-        for (key, value) in self {
-            try message.pack(key)
-            try message.pack(value)
+        try message.packMap(count: UInt(self.count)) {
+            for (key, value) in self {
+                try message.pack(key)
+                try message.pack(value)
+            }
         }
     }
 }

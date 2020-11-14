@@ -81,6 +81,8 @@ final class MessagePackTests: XCTestCase {
         XCTAssertEqual(4, message.count)
         try message.packBinary("foo".utf8)
         XCTAssertEqual(5, message.count)
+        try message.pack([0: "no", 1: "yes", 2: "maybe"])
+        XCTAssertEqual(6, message.count)
     }
 
     func runIntegerCompatibilityTests<T>(for type: T.Type)

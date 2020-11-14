@@ -1,6 +1,16 @@
 public class PackableMessage {
+    private var parentBytes:  [[UInt8]] = []
+    private var parentCounts: [UInt]    = []
+
     public internal(set) var bytes: [UInt8] = []
-    public internal(set) var count: UInt32 = 0
+
+    // While length of MessagePack objects is limited to UInt32.max, map type
+    // will have inside twice as many objects as its declared length.
+    // Additionally, the specification does not impose any limit on the number
+    // of objects that may exist outside a container.  UInt is good enough to
+    // represent all possible values on both 32- and 64-bit systems, given that
+    // [UInt8] buffer can't hold more than Int.max bytes anyway.
+    public internal(set) var count: UInt = 0
 
     public init() { }
 
@@ -14,6 +24,83 @@ public class PackableMessage {
     where C: Collection, C.Element == UInt8 {
         try self.writeHeader(forType: .binary, length: UInt(bytes.count))
         self.write(bytes: bytes)
+    }
+
+    @discardableResult
+    public func packArray(_ closure: () throws -> ()) throws -> Self {
+        self.enterScope()
+        try closure()
+        let (bytes, count) = self.leaveScope()
+        try self.writeHeader(forType: .array, length: count)
+        self.write(bytes: bytes)
+        return self
+    }
+
+    @discardableResult
+    public func packArray(count: UInt, _ closure: () throws -> ()) throws
+    -> Self {
+        try self.writeHeader(forType: .array, length: count)
+        self.enterCountScope()
+        try closure()
+        let actualCount = self.leaveCountScope()
+        precondition(count == actualCount,
+            "Expected \(count) elements, got \(actualCount)")
+        return self
+    }
+
+    @discardableResult
+    public func packMap(_ closure: () throws -> ()) throws
+    -> Self {
+        self.enterScope()
+        try closure()
+        let (bytes, count) = self.leaveScope()
+        precondition(count % 2 == 0,
+            "Unexpected key without a matching value")
+        try self.writeHeader(forType: .map, length: UInt(count / 2))
+        self.write(bytes: bytes)
+        return self
+    }
+
+    @discardableResult
+    public func packMap(count: UInt, _ closure: () throws -> ()) throws
+    -> Self {
+        try self.writeHeader(forType: .map, length: count)
+        self.enterCountScope()
+        try closure()
+        let objectCount = self.leaveCountScope()
+        precondition(objectCount % 2 == 0,
+            "Unexpected key without a matching value")
+        let actualCount = objectCount / 2
+        precondition(count == actualCount,
+            "Expected \(count) elements, got \(actualCount)")
+        return self
+    }
+
+    private func enterScope() {
+        self.parentBytes.append(self.bytes)
+        self.parentCounts.append(self.count)
+        self.bytes = []
+        self.count = 0
+    }
+
+    private func leaveScope() -> (bytes: [UInt8], count: UInt) {
+        defer {
+            self.bytes = self.parentBytes.removeLast()
+            self.count = self.parentCounts.removeLast()
+        }
+        return (self.bytes, self.count)
+    }
+
+    private func enterCountScope() {
+        self.parentCounts.append(self.count)
+        self.count = 0
+    }
+
+    private func leaveCountScope() -> UInt {
+        defer {
+            self.count = self.parentCounts.removeLast()
+        }
+        return self.count
     }
 
     func writeHeader(forType type: MessagePackType, length: UInt) throws {
