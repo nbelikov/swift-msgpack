@@ -21,6 +21,13 @@ public class PackableMessage {
     }
 
     @discardableResult
+    public func packMessage(_ message: PackableMessage) -> Self {
+        self.write(bytes: message.bytes)
+        self.count += message.count
+        return self
+    }
+
+    @discardableResult
     public func packNil() -> Self {
         self.writeFormatByte(.`nil`)
         return self
