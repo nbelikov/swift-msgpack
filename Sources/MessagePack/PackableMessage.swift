@@ -91,6 +91,17 @@ public class PackableMessage {
         return self
     }
 
+    @discardableResult
+    public func encode<T: Encodable>(
+        _ value: T, userInfo: [CodingUserInfoKey : Any] = [:]
+    ) throws -> Self {
+        let encoder = MessagePackEncoder(userInfo: userInfo, codingPath: [])
+        try encoder.encode(value)
+        self.write(bytes: encoder.bytes)
+        self.count += 1
+        return self
+    }
+
     private func enterScope() {
         self.parentBytes.append(self.bytes)
         self.parentCounts.append(self.count)
