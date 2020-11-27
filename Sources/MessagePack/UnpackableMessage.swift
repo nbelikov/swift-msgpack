@@ -1,13 +1,16 @@
 public class UnpackableMessage {
-    var bytes: [UInt8]
-    var position: Int = 0
+    private var slice: ArraySlice<UInt8>
 
     // This property should be directly accessed only by self.readFormatByte()
     // and self.peekFormatByte()
     var _formatByte: FormatByte?
 
-    public init(from bytes: [UInt8]) {
-        self.bytes = bytes
+    public convenience init(from bytes: [UInt8]) {
+        self.init(from: bytes[bytes.startIndex ..< bytes.endIndex])
+    }
+
+    public init(from slice: ArraySlice<UInt8>) {
+        self.slice = slice
     }
 
     // FIXME: This recursive implementation can be easily tricked by malicious
@@ -62,9 +65,7 @@ public class UnpackableMessage {
         return formatByte
     }
 
-    public func isEmpty() -> Bool {
-        self.position == self.bytes.count
-    }
+    public func isEmpty() -> Bool { self.slice.count == 0 }
 
     func unpackAnyInteger() throws -> Any {
         let formatByte = try self.peekFormatByte()
@@ -129,30 +130,24 @@ public class UnpackableMessage {
 
     func readInteger<T: FixedWidthInteger>(as: T.Type) throws -> T {
         let size = MemoryLayout<T>.size
-        let slice = try self.readBytes(size: UInt(size))
+        let bytes = try self.readBytes(size: UInt(size))
         var bigEndian = T()
         withUnsafeMutableBytes(of: &bigEndian) {
             for i in 0 ..< size {
-                $0[i] = slice[slice.startIndex + i]
+                $0[i] = bytes[bytes.startIndex + i]
             }
         }
         return T(bigEndian: bigEndian)
     }
 
     func readBytes(size: UInt) throws -> ArraySlice<UInt8> {
-        // This could overflow on 32-bit hosts:
-        //     let intSize = Int(exactly: size) else { ... }
-        //     let endPosition = self.position + intSize
-        //     guard endPosition <= self.bytes.count else { ... }
-        let remaining = self.bytes.count - self.position
-        guard size <= remaining else {
+        guard size <= self.slice.count else {
             throw MessagePackError.unexpectedEndOfMessage
         }
         // The following conversion is safe even on 32-bit hosts thanks to the
         // check above.
-        let endPosition = self.position + Int(size)
-        let range = self.position ..< endPosition
-        self.position = endPosition
-        return bytes[range]
+        let result = self.slice.prefix(Int(size))
+        self.slice = self.slice.suffix(self.slice.count - Int(size))
+        return result
     }
 }
