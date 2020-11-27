@@ -3,7 +3,7 @@ public class UnpackableMessage {
 
     // This property should be directly accessed only by self.readFormatByte()
     // and self.peekFormatByte()
-    var _formatByte: FormatByte?
+    private var _formatByte: FormatByte?
 
     public convenience init(from bytes: [UInt8]) {
         self.init(from: bytes[bytes.startIndex ..< bytes.endIndex])
@@ -67,7 +67,7 @@ public class UnpackableMessage {
 
     public var isEmpty: Bool { self.slice.count == 0 }
 
-    func unpackAnyInteger() throws -> Any {
+    private func unpackAnyInteger() throws -> Any {
         let formatByte = try self.peekFormatByte()
         if formatByte.format == .uint64 {
             let uint64: UInt64 = try self.unpack()
@@ -83,7 +83,7 @@ public class UnpackableMessage {
         }
     }
 
-    func unpackAnyArray() throws -> [Any?] {
+    private func unpackAnyArray() throws -> [Any?] {
         try readArray() { try self.unpackAny() }
     }
 

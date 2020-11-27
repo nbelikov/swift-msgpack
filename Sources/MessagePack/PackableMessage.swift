@@ -156,8 +156,8 @@ public class PackableMessage {
         }
     }
 
-    func singleByteHeader(forType type: MessagePackType, length: UInt) ->
-    FormatByte? {
+    private func singleByteHeader(forType type: MessagePackType, length: UInt)
+    -> FormatByte? {
         guard let intLength = Int8(exactly: length) else { return nil }
         switch (type, intLength) {
         case (.map,    FormatByte.Format.fixmap.valueRange):
