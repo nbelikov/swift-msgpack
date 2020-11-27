@@ -65,7 +65,7 @@ public class UnpackableMessage {
         return formatByte
     }
 
-    public func isEmpty() -> Bool { self.slice.count == 0 }
+    public var isEmpty: Bool { self.slice.count == 0 }
 
     func unpackAnyInteger() throws -> Any {
         let formatByte = try self.peekFormatByte()
