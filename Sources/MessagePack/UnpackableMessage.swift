@@ -1,6 +1,8 @@
 public class UnpackableMessage {
+    private var remainingCounts: [UInt?] = []
     private var slice: ArraySlice<UInt8>
-
+    // See comment for PackableMessage.count
+    private var remainingCount: UInt?
     // This property should be directly accessed only by self.readFormatByte()
     // and self.peekFormatByte()
     private var _formatByte: FormatByte?
@@ -46,6 +48,58 @@ public class UnpackableMessage {
         return try Array(self.readBytes(size: length))
     }
 
+    public func unpackArray<R>(
+        _ closure: (_ count: UInt) throws -> R
+    ) throws -> R {
+        let formatByte = try self.readFormatByte()
+        let type = MessagePackType(formatByte)
+        guard type == .array else { throw MessagePackError.incompatibleType }
+        let length = try self.readLength(formatByte)
+        self.enterScope(count: length)
+        let result = try closure(length)
+        precondition(
+            self.remainingCount == 0,
+            "\(self.remainingCount!) elements of an array were left unpacked")
+        self.leaveScope()
+        return result
+    }
+
+    public func unpackMap<R>(
+        _ closure: (_ count: UInt) throws -> R
+    ) throws -> R {
+        let formatByte = try self.readFormatByte()
+        let type = MessagePackType(formatByte)
+        guard type == .map else { throw MessagePackError.incompatibleType }
+        let length = try self.readLength(formatByte)
+        // Check for possible overflow on 32-bit hosts.  Since the message's
+        // body length is limited by what can fit inside [UInt8], that is, by
+        // Int.max, if this exception wouldn't be thrown at this point, it is
+        // guaranteed that it would be thrown later.
+        guard length <= UInt.max / 2 else {
+            throw MessagePackError.unexpectedEndOfMessage
+        }
+        self.enterScope(count: length * 2)
+        let result = try closure(length)
+        precondition(
+            self.remainingCount! % 2 == 0,
+            "A key was unpacked while it's paired value wasn't.  " +
+            "\(self.remainingCount! / 2) elements of a map were left unpacked")
+        precondition(
+            self.remainingCount == 0,
+            "\(self.remainingCount! / 2) elements of a map were left unpacked")
+        self.leaveScope()
+        return result
+    }
+
+    private func enterScope(count: UInt) {
+        self.remainingCounts.append(self.remainingCount)
+        self.remainingCount = count
+    }
+
+    private func leaveScope() {
+        self.remainingCount = self.remainingCounts.removeLast()
+    }
+
     func peekFormatByte() throws -> FormatByte {
         if self._formatByte == nil {
             self._formatByte = try self.readFormatByte()
@@ -58,10 +112,15 @@ public class UnpackableMessage {
             self._formatByte = nil
             return formatByte
         }
+        precondition(
+            self.remainingCount != 0,
+            "Attempt to unpack an element beyond the enclosing container's " +
+            "boundary")
         let byte = try self.readInteger(as: UInt8.self)
         guard let formatByte = FormatByte(rawValue: byte) else {
             throw MessagePackError.invalidMessage
         }
+        if self.remainingCount != nil { self.remainingCount! -= 1 }
         return formatByte
     }
 
