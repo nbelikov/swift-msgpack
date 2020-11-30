@@ -93,10 +93,10 @@ final class MessagePackEncoder: Encoder, SingleValueEncodingContainer {
                 // FIXME: This call will throw wrong exception
                 try message.packMap(count: UInt(container.count)) {
                     for (key, value) in container {
-                        try message.pack(key)
+                        try $0.pack(key)
                         try value.flatten()
-                        message.write(bytes: value.bytes)
-                        message.count += 1
+                        $0.write(bytes: value.bytes)
+                        $0.count += 1 // FIXME
                     }
                 }
             }
@@ -106,8 +106,8 @@ final class MessagePackEncoder: Encoder, SingleValueEncodingContainer {
                 try message.packArray(count: UInt(container.count)) {
                     for value in container {
                         try value.flatten()
-                        message.write(bytes: value.bytes)
-                        message.count += 1
+                        $0.write(bytes: value.bytes)
+                        $0.count += 1 // FIXME
                     }
                 }
             }
@@ -129,12 +129,12 @@ final class MessagePackEncoder: Encoder, SingleValueEncodingContainer {
     }
 
     private func encodeSingleValue(
-        _ closure: (PackableMessage) throws -> ()
+        _ closure: (inout PackableMessage) throws -> ()
     ) rethrows {
         switch self.state {
         case .empty:
-            let message = PackableMessage()
-            try closure(message)
+            var message = PackableMessage()
+            try closure(&message)
             self.state = .packed(message.bytes)
             default: preconditionFailure() // FIXME: Add message
         }

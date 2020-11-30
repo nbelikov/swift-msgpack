@@ -69,7 +69,7 @@ final class MessagePackTests: XCTestCase {
 
     func testCount() throws {
         // Individual types are tested in doTestPack(value:packedValue:)
-        let message = PackableMessage()
+        var message = PackableMessage()
         XCTAssertEqual(0, message.count)
         try message.pack("foo")
         XCTAssertEqual(1, message.count)
@@ -86,46 +86,49 @@ final class MessagePackTests: XCTestCase {
     }
 
     func testPackArrayWithoutCount() throws {
-        let reference = try PackableMessage().pack([0, 1, 2]).bytes
-        let message = PackableMessage()
+        var referenceMessage = PackableMessage()
+        try referenceMessage.pack([0, 1, 2])
+        var message = PackableMessage()
         try message.packArray {
-            try message.pack(0).pack(1).pack(2)
+            try $0.pack(0); try $0.pack(1); try $0.pack(2)
         }
         XCTAssertEqual(
-            StringConvertibleBytes(reference),
+            StringConvertibleBytes(referenceMessage.bytes),
             StringConvertibleBytes(message.bytes))
     }
 
     func testPackArrayWithCount() throws {
-        let reference = try PackableMessage().pack([0, 1, 2]).bytes
-        let message = PackableMessage()
+        var referenceMessage = PackableMessage()
+        try referenceMessage.pack([0, 1, 2])
+        var message = PackableMessage()
         try message.packArray(count: 3) {
-            try message.pack(0).pack(1).pack(2)
+            try $0.pack(0); try $0.pack(1); try $0.pack(2)
         }
         XCTAssertEqual(
-            StringConvertibleBytes(reference),
+            StringConvertibleBytes(referenceMessage.bytes),
             StringConvertibleBytes(message.bytes))
     }
 
     func testUnpackArray() throws {
         let reference = [0, 1, 2]
-        let bytes = try PackableMessage().pack(reference).bytes
-        let message = UnpackableMessage(from: bytes)
+        var referenceMessage = PackableMessage()
+        try referenceMessage.pack(reference)
+        var message = UnpackableMessage(from: referenceMessage.bytes)
         var result: [Int] = []
-        try message.unpackArray { count in
-            for _ in 0 ..< count { result.append(try message.unpack()) }
+        try message.unpackArray { nestedMessage, count in
+            for _ in 0 ..< count { result.append(try nestedMessage.unpack()) }
         }
         XCTAssertEqual(reference, result)
     }
 
     func testPackMapWithoutCount() throws {
         let reference = ["true": true, "false": false]
-        let packableMessage = PackableMessage()
+        var packableMessage = PackableMessage()
         try packableMessage.packMap {
-            try packableMessage.pack("true").pack(true)
-            try packableMessage.pack("false").pack(false)
+            try $0.pack("true");  try $0.pack(true)
+            try $0.pack("false"); try $0.pack(false)
         }
-        let unpackableMessage = UnpackableMessage(from: packableMessage.bytes)
+        var unpackableMessage = UnpackableMessage(from: packableMessage.bytes)
         XCTAssertEqual(
             reference,
             try unpackableMessage.unpack() as [String : Bool])
@@ -133,12 +136,12 @@ final class MessagePackTests: XCTestCase {
 
     func testPackMapWithCount() throws {
         let reference = ["true": true, "false": false]
-        let packableMessage = PackableMessage()
+        var packableMessage = PackableMessage()
         try packableMessage.packMap(count: 2) {
-            try packableMessage.pack("true").pack(true)
-            try packableMessage.pack("false").pack(false)
+            try $0.pack("true");  try $0.pack(true)
+            try $0.pack("false"); try $0.pack(false)
         }
-        let unpackableMessage = UnpackableMessage(from: packableMessage.bytes)
+        var unpackableMessage = UnpackableMessage(from: packableMessage.bytes)
         XCTAssertEqual(
             reference,
             try unpackableMessage.unpack() as [String : Bool])
@@ -146,12 +149,13 @@ final class MessagePackTests: XCTestCase {
 
     func testUnpackMap() throws {
         let reference = ["true": true, "false": false]
-        let bytes = try PackableMessage().pack(reference).bytes
-        let message = UnpackableMessage(from: bytes)
+        var referenceMessage = PackableMessage()
+        try referenceMessage.pack(reference)
+        var message = UnpackableMessage(from: referenceMessage.bytes)
         var result: [String : Bool] = [:]
-        try message.unpackMap { count in
+        try message.unpackMap { nestedMessage, count in
             for _ in 0 ..< count {
-                result[try message.unpack()] = try message.unpack()
+                result[try nestedMessage.unpack()] = try nestedMessage.unpack()
             }
         }
         XCTAssertEqual(reference, result)
@@ -196,7 +200,7 @@ final class MessagePackTests: XCTestCase {
     func doTestPack<T>(value: T, packedValue: [UInt8])
     where T: MessagePackCompatible & Equatable {
         let context = "while packing \(T.self) value \"\(value)\""
-        let message = PackableMessage()
+        var message = PackableMessage()
         XCTAssertNoThrow(try message.pack(value), context)
         XCTAssertEqual(StringConvertibleBytes(packedValue),
                        StringConvertibleBytes(message.bytes), context)
@@ -207,14 +211,14 @@ final class MessagePackTests: XCTestCase {
     where T: MessagePackCompatible & Equatable {
         let context = "while unpacking variant \(variant) of " +
             "\(T.self) value \"\(value)\""
-        let message = UnpackableMessage(from: packedValue)
+        var message = UnpackableMessage(from: packedValue)
         XCTAssertEqual(value, try message.unpack(), context)
     }
 
     // FIXME this is almost a verbatim copy of doTestPack
     func doTestPackBinary(value: [UInt8], packedValue: [UInt8]) {
         let context = "while packing value \"\(value)\""
-        let message = PackableMessage()
+        var message = PackableMessage()
         XCTAssertNoThrow(try message.packBinary(value), context)
         XCTAssertEqual(StringConvertibleBytes(packedValue),
                        StringConvertibleBytes(message.bytes), context)
@@ -226,7 +230,7 @@ final class MessagePackTests: XCTestCase {
     {
         let context = "while unpacking variant \(variant) of " +
             "value \"\(value)\""
-        let message = UnpackableMessage(from: packedValue)
+        var message = UnpackableMessage(from: packedValue)
         XCTAssertEqual(value, try message.unpackBinary(), context)
     }
 
@@ -236,7 +240,7 @@ final class MessagePackTests: XCTestCase {
     ) where T: MessagePackCompatible & Equatable {
         let context = "while unpacking variant \(variant) of " +
             "value \"\(value)\" as \(T.self)"
-        let message = UnpackableMessage(from: packedValue)
+        var message = UnpackableMessage(from: packedValue)
         XCTAssertThrowsError(try message.unpack() as T, context) {
             XCTAssertEqual(expectedError, $0 as? MessagePackError, context)
         }

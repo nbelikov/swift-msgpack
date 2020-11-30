@@ -1,8 +1,8 @@
-public class PackableMessage {
-    private var parentBytes:  [[UInt8]] = []
-    private var parentCounts: [UInt]    = []
+public struct PackableMessage {
+    private final class Storage { var bytes: [UInt8] = [] }
+    private let storage: Storage
 
-    public internal(set) var bytes: [UInt8] = []
+    public var bytes: [UInt8] { self.storage.bytes }
 
     // While length of MessagePack objects is limited to UInt32.max, map type
     // will have inside twice as many objects as its declared length.
@@ -12,128 +12,96 @@ public class PackableMessage {
     // [UInt8] buffer can't hold more than Int.max bytes anyway.
     public internal(set) var count: UInt = 0
 
-    public init() { }
-
-    @discardableResult
-    public func pack<T: MessagePackCompatible>(_ object: T) throws -> Self {
-        try object.pack(to: self)
-        return self
+    public init() {
+        self.storage = Storage()
     }
 
-    @discardableResult
-    public func packMessage(_ message: PackableMessage) -> Self {
+    private init(parent message: inout PackableMessage) {
+        self.storage = message.storage
+    }
+
+    public mutating func pack<T: MessagePackCompatible>(_ object: T) throws {
+        try object.pack(to: &self)
+    }
+
+    public mutating func packMessage(_ message: PackableMessage) {
         self.write(bytes: message.bytes)
         self.count += message.count
-        return self
     }
 
-    @discardableResult
-    public func packNil() -> Self {
+    public mutating func packNil() {
         self.writeFormatByte(.`nil`)
-        return self
     }
 
-    @discardableResult
-    public func packBinary<C>(_ bytes: C) throws -> Self
+    public mutating func packBinary<C>(_ bytes: C) throws
     where C: Collection, C.Element == UInt8 {
         try self.writeHeader(forType: .binary, length: UInt(bytes.count))
         self.write(bytes: bytes)
-        return self
     }
 
-    @discardableResult
-    public func packArray(_ closure: () throws -> ()) throws -> Self {
-        self.enterScope()
-        try closure()
-        let (bytes, count) = self.leaveScope()
+    public mutating func packArray(
+        _ closure: (inout PackableMessage) throws -> ()
+    ) throws {
+        var message = PackableMessage()
+        try closure(&message)
+        try self.writeHeader(forType: .array, length: message.count)
+        self.write(bytes: message.bytes)
+    }
+
+    public mutating func packArray(
+        count: UInt, _ closure: (inout PackableMessage) throws -> ()
+    ) throws {
         try self.writeHeader(forType: .array, length: count)
-        self.write(bytes: bytes)
-        return self
+        var message = PackableMessage(parent: &self)
+        try closure(&message)
+        precondition(
+            count == message.count,
+            "Expected \(count) elements, got \(message.count)")
     }
 
-    @discardableResult
-    public func packArray(count: UInt, _ closure: () throws -> ()) throws
-    -> Self {
-        try self.writeHeader(forType: .array, length: count)
-        self.enterCountScope()
-        try closure()
-        let actualCount = self.leaveCountScope()
-        precondition(count == actualCount,
-            "Expected \(count) elements, got \(actualCount)")
-        return self
-    }
-
-    @discardableResult
-    public func packMap(_ closure: () throws -> ()) throws
-    -> Self {
-        self.enterScope()
-        try closure()
-        let (bytes, count) = self.leaveScope()
-        precondition(count % 2 == 0,
+    public mutating func packMap(
+        _ closure: (inout PackableMessage) throws -> ()
+    ) throws {
+        var message = PackableMessage()
+        try closure(&message)
+        precondition(
+            message.count % 2 == 0,
             "Unexpected key without a matching value")
-        try self.writeHeader(forType: .map, length: UInt(count / 2))
-        self.write(bytes: bytes)
-        return self
+        try self.writeHeader(forType: .map, length: UInt(message.count / 2))
+        self.write(bytes: message.bytes)
     }
 
-    @discardableResult
-    public func packMap(count: UInt, _ closure: () throws -> ()) throws
-    -> Self {
+    public mutating func packMap(
+        count: UInt, _ closure: (inout PackableMessage) throws -> ()
+    ) throws {
         try self.writeHeader(forType: .map, length: count)
-        self.enterCountScope()
-        try closure()
-        let objectCount = self.leaveCountScope()
-        precondition(objectCount % 2 == 0,
+        var message = PackableMessage(parent: &self)
+        try closure(&message)
+        precondition(
+            message.count % 2 == 0,
             "Unexpected key without a matching value")
-        let actualCount = objectCount / 2
-        precondition(count == actualCount,
-            "Expected \(count) elements, got \(actualCount)")
-        return self
+        let pairCount = message.count / 2
+        precondition(
+            count == pairCount,
+            "Expected \(count) elements, got \(pairCount)")
     }
 
-    @discardableResult
-    public func encode<T: Encodable>(
+    public mutating func encode<T: Encodable>(
         _ value: T, userInfo: [CodingUserInfoKey : Any] = [:]
-    ) throws -> Self {
+    ) throws {
         let encoder = MessagePackEncoder(userInfo: userInfo, codingPath: [])
         try encoder.encode(value)
         self.write(bytes: encoder.bytes)
         self.count += 1
-        return self
     }
 
-    private func enterScope() {
-        self.parentBytes.append(self.bytes)
-        self.parentCounts.append(self.count)
-        self.bytes = []
-        self.count = 0
-    }
-
-    private func leaveScope() -> (bytes: [UInt8], count: UInt) {
-        defer {
-            self.bytes = self.parentBytes.removeLast()
-            self.count = self.parentCounts.removeLast()
-        }
-        return (self.bytes, self.count)
-    }
-
-    private func enterCountScope() {
-        self.parentCounts.append(self.count)
-        self.count = 0
-    }
-
-    private func leaveCountScope() -> UInt {
-        defer {
-            self.count = self.parentCounts.removeLast()
-        }
-        return self.count
-    }
-
-    func writeHeader(forType type: MessagePackType, length: UInt) throws {
+    mutating func writeHeader(
+        forType type: MessagePackType, length: UInt
+    ) throws {
         guard length <= UInt32.max else {
             throw MessagePackError.objectTooBig
         }
-        if let formatByte = self.singleByteHeader(
+        if let formatByte = Self.singleByteHeader(
             forType: type, length: length) {
             return self.writeFormatByte(formatByte)
         }
@@ -156,8 +124,9 @@ public class PackableMessage {
         }
     }
 
-    private func singleByteHeader(forType type: MessagePackType, length: UInt)
-    -> FormatByte? {
+    private static func singleByteHeader(
+        forType type: MessagePackType, length: UInt
+    ) -> FormatByte? {
         guard let intLength = Int8(exactly: length) else { return nil }
         switch (type, intLength) {
         case (.map,    FormatByte.Format.fixmap.valueRange):
@@ -175,33 +144,35 @@ public class PackableMessage {
         }
     }
 
-    func writeFormatAndInteger<T: FixedWidthInteger>(
+    mutating func writeFormatAndInteger<T: FixedWidthInteger>(
         _ format: FormatByte.Format, _ value: T) {
         self.writeFormatByte(format)
         self.writeInteger(value)
     }
 
-    func writeFormatByte(_ format: FormatByte.Format) {
+    mutating func writeFormatByte(_ format: FormatByte.Format) {
         self.writeFormatByte(FormatByte(format))
     }
 
-    func writeFormatByte(_ format: FormatByte.Format, withValue value: Int8) {
+    mutating func writeFormatByte(
+        _ format: FormatByte.Format, withValue value: Int8
+    ) {
         self.writeFormatByte(FormatByte(format, withValue: value))
     }
 
-    func writeFormatByte(_ formatByte: FormatByte) {
+    mutating func writeFormatByte(_ formatByte: FormatByte) {
         self.writeInteger(formatByte.rawValue)
         self.count += 1
     }
 
-    func writeInteger<T: FixedWidthInteger>(_ value: T) {
+    mutating func writeInteger<T: FixedWidthInteger>(_ value: T) {
         let bigEndian = T(bigEndian: value)
         withUnsafeBytes(of: bigEndian) {
             self.write(bytes: $0)
         }
     }
 
-    func write<S>(bytes: S) where S: Sequence, S.Element == UInt8 {
-        self.bytes += bytes
+    mutating func write<S>(bytes: S) where S: Sequence, S.Element == UInt8 {
+        self.storage.bytes += bytes
     }
 }

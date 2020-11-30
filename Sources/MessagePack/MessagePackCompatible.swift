@@ -1,13 +1,13 @@
 import Foundation // Provides String.init(bytes:encoding:)
 
 public protocol MessagePackCompatible {
-    init(unpackFrom: UnpackableMessage) throws
-    func pack(to: PackableMessage) throws
+    init(unpackFrom: inout UnpackableMessage) throws
+    func pack(to: inout PackableMessage) throws
 }
 
 extension Optional: MessagePackCompatible
 where Wrapped: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
+    public init(unpackFrom message: inout UnpackableMessage) throws {
         if try message.peekFormatByte().format == .`nil` {
             _ = try message.readFormatByte()
             self = .none
@@ -16,7 +16,7 @@ where Wrapped: MessagePackCompatible {
         }
     }
 
-    public func pack(to message: PackableMessage) throws {
+    public func pack(to message: inout PackableMessage) throws {
         switch self {
         case .none: message.packNil()
         case .some(let wrapped): try message.pack(wrapped)
@@ -25,7 +25,7 @@ where Wrapped: MessagePackCompatible {
 }
 
 extension Bool: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
+    public init(unpackFrom message: inout UnpackableMessage) throws {
         let formatByte = try message.readFormatByte()
         switch formatByte.format {
         case .`false`: self = false
@@ -34,13 +34,13 @@ extension Bool: MessagePackCompatible {
         }
     }
 
-    public func pack(to message: PackableMessage) {
+    public func pack(to message: inout PackableMessage) {
         message.writeFormatByte(self ? .`true` : .`false`)
     }
 }
 
 extension Double: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
+    public init(unpackFrom message: inout UnpackableMessage) throws {
         let formatByte = try message.readFormatByte()
         switch formatByte.format {
         case .float32:
@@ -52,13 +52,13 @@ extension Double: MessagePackCompatible {
         }
     }
 
-    public func pack(to message: PackableMessage) {
+    public func pack(to message: inout PackableMessage) {
         message.writeFormatAndInteger(.float64, self.bitPattern)
     }
 }
 
 extension Float: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
+    public init(unpackFrom message: inout UnpackableMessage) throws {
         let formatByte = try message.readFormatByte()
         guard formatByte.format == .float32 else {
             throw MessagePackError.incompatibleType
@@ -66,7 +66,7 @@ extension Float: MessagePackCompatible {
         self.init(bitPattern: try message.readInteger(as: UInt32.self))
     }
 
-    public func pack(to message: PackableMessage) {
+    public func pack(to message: inout PackableMessage) {
         message.writeFormatAndInteger(.float32, self.bitPattern)
     }
 }
@@ -84,7 +84,7 @@ extension UInt32: MessagePackCompatible { }
 extension UInt64: MessagePackCompatible { }
 
 extension MessagePackCompatible where Self: FixedWidthInteger {
-    public init(unpackFrom message: UnpackableMessage) throws {
+    public init(unpackFrom message: inout UnpackableMessage) throws {
         let formatByte = try message.readFormatByte()
         let result: Self?
         switch formatByte.format { // TODO: Make this less repetitive?
@@ -112,7 +112,7 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
         self.init(result!)
     }
 
-    public func pack(to message: PackableMessage) {
+    public func pack(to message: inout PackableMessage) {
         if let int8 = Int8(exactly: self) {
             switch int8 {
             case FormatByte.Format.positiveFixint.valueRange:
@@ -143,7 +143,7 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
 }
 
 extension String: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
+    public init(unpackFrom message: inout UnpackableMessage) throws {
         let formatByte = try message.readFormatByte()
         guard MessagePackType(formatByte) == .string else {
             throw MessagePackError.incompatibleType
@@ -156,7 +156,7 @@ extension String: MessagePackCompatible {
         self = string
     }
 
-    public func pack(to message: PackableMessage) throws {
+    public func pack(to message: inout PackableMessage) throws {
         let length = UInt(self.utf8.count)
         try message.writeHeader(forType: .string, length: length)
         message.write(bytes: self.utf8)
@@ -164,48 +164,48 @@ extension String: MessagePackCompatible {
 }
 
 extension Array: MessagePackCompatible where Element: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
-        // FIXME: This is dumb.  UnpackableMessage.unpack() calls
-        // Array.init(unpackFrom:) which in turn calls
-        // UnpackableMessage.readArray(readElement:).
-        self = try message.readArray() { try message.unpack() }
+    public init(unpackFrom message: inout UnpackableMessage) throws {
+        self = try message.unpackArray { message, count in
+            var result: [Element] = []
+            // Don't: result.reserveCapacity(Int(count))
+            // See comment for UnpackableMessage.unpackArray(:) for
+            // explaination.
+            for _ in 0 ..< count { result.append(try message.unpack()) }
+            return result
+        }
     }
 
-    public func pack(to message: PackableMessage) throws {
+    public func pack(to message: inout PackableMessage) throws {
         try message.packArray(count: UInt(self.count)) {
-            for element in self {
-                try message.pack(element)
-            }
+            for element in self { try $0.pack(element) }
         }
     }
 }
 
 extension Dictionary: MessagePackCompatible
 where Key: MessagePackCompatible, Value: MessagePackCompatible {
-    public init(unpackFrom message: UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        guard MessagePackType(formatByte) == .map else {
-            throw MessagePackError.incompatibleType
-        }
-        let length = try message.readLength(formatByte)
-        self.init()
-        // Don't do this:
-        //     self.reserveCapacity(Int(length))
-        // See Array.init(unpackFrom:) for explanation
-        for _ in 0 ..< length {
-            let key:   Key   = try message.unpack()
-            let value: Value = try message.unpack()
-            if self.updateValue(value, forKey: key) != nil {
-                throw MessagePackError.duplicateMapKey
+    public init(unpackFrom message: inout UnpackableMessage) throws {
+        self = try message.unpackMap { message, count in
+            var result: [Key : Value] = [:]
+            // Don't: result.reserveCapacity(Int(count))
+            // See comment for UnpackableMessage.unpackArray(:) for
+            // explaination.
+            for _ in 0 ..< count {
+                let key:   Key   = try message.unpack()
+                let value: Value = try message.unpack()
+                if result.updateValue(value, forKey: key) != nil {
+                    throw MessagePackError.duplicateMapKey
+                }
             }
+            return result
         }
     }
 
-    public func pack(to message: PackableMessage) throws {
+    public func pack(to message: inout PackableMessage) throws {
         try message.packMap(count: UInt(self.count)) {
             for (key, value) in self {
-                try message.pack(key)
-                try message.pack(value)
+                try $0.pack(key)
+                try $0.pack(value)
             }
         }
     }
