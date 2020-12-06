@@ -1,3 +1,5 @@
+import Foundation // Provides String.init(bytes:encoding:)
+
 public struct UnpackableMessage {
     private var slice: ArraySlice<UInt8>
     // See comment for PackableMessage.count
@@ -41,6 +43,77 @@ public struct UnpackableMessage {
 
     public mutating func unpack<T: MessagePackCompatible>() throws -> T {
         try T(unpackFrom: &self)
+    }
+
+    public mutating func unpackBool() throws -> Bool {
+        let formatByte = try self.readFormatByte()
+        switch formatByte.format {
+        case .`false`: return false
+        case .`true`:  return true
+        default:       throw MessagePackError.incompatibleType
+        }
+    }
+
+    public mutating func unpackDouble() throws -> Double {
+        let formatByte = try self.readFormatByte()
+        switch formatByte.format {
+        case .float32:
+            // FIXME: Reuse unpackFloat()
+            let bitPattern = try self.readInteger(as: UInt32.self)
+            return Double(Float(bitPattern: bitPattern))
+        case .float64:
+            return Double(bitPattern: try self.readInteger(as: UInt64.self))
+        default: throw MessagePackError.incompatibleType
+        }
+    }
+
+    public mutating func unpackFloat() throws -> Float {
+        let formatByte = try self.readFormatByte()
+        guard formatByte.format == .float32 else {
+            throw MessagePackError.incompatibleType
+        }
+        return Float(bitPattern: try self.readInteger(as: UInt32.self))
+    }
+
+    public mutating func unpackInteger<T: FixedWidthInteger>() throws -> T {
+        let formatByte = try self.readFormatByte()
+        let result: T?
+        switch formatByte.format { // TODO: Make this less repetitive?
+        case .uint8:
+            result = T(exactly: try self.readInteger(as: UInt8.self))
+        case .uint16:
+            result = T(exactly: try self.readInteger(as: UInt16.self))
+        case .uint32:
+            result = T(exactly: try self.readInteger(as: UInt32.self))
+        case .uint64:
+            result = T(exactly: try self.readInteger(as: UInt64.self))
+        case .int8:
+            result = T(exactly: try self.readInteger(as: Int8.self))
+        case .int16:
+            result = T(exactly: try self.readInteger(as: Int16.self))
+        case .int32:
+            result = T(exactly: try self.readInteger(as: Int32.self))
+        case .int64:
+            result = T(exactly: try self.readInteger(as: Int64.self))
+        case .positiveFixint, .negativeFixint:
+            result = T(exactly: formatByte.value)
+        default: throw MessagePackError.incompatibleType
+        }
+        if result == nil { throw MessagePackError.incompatibleType }
+        return result!
+    }
+
+    public mutating func unpackString() throws -> String {
+        let formatByte = try self.readFormatByte()
+        guard MessagePackType(formatByte) == .string else {
+            throw MessagePackError.incompatibleType
+        }
+        let length = try self.readLength(formatByte)
+        let bytes = try self.readBytes(size: length)
+        guard let string = String(bytes: bytes, encoding: .utf8) else {
+            throw MessagePackError.invalidUtf8String
+        }
+        return string
     }
 
     // TODO: Should this return ArraySlice<UInt8> instead?
@@ -106,6 +179,8 @@ public struct UnpackableMessage {
         return result
     }
 
+    // FIXME: Cannot be private because used by extension Optional:
+    // MessagePackCompatible.
     mutating func peekFormatByte() throws -> FormatByte {
         if self._formatByte == nil {
             self._formatByte = try self.readFormatByte()
@@ -113,6 +188,8 @@ public struct UnpackableMessage {
         return self._formatByte!
     }
 
+    // FIXME: Cannot be private because used by extension Optional:
+    // MessagePackCompatible.
     mutating func readFormatByte() throws -> FormatByte {
         if let formatByte = self._formatByte {
             self._formatByte = nil
@@ -158,11 +235,11 @@ public struct UnpackableMessage {
         }
     }
 
-    mutating func unpackAnyMap() throws -> [AnyHashable : Any?] {
+    private mutating func unpackAnyMap() throws -> [AnyHashable : Any?] {
         return [:] // FIXME
     }
 
-    mutating func readLength(_ formatByte: FormatByte) throws -> UInt {
+    private mutating func readLength(_ formatByte: FormatByte) throws -> UInt {
         switch formatByte.format {
         case .fixmap, .fixarray, .fixstr: return UInt(formatByte.value)
         case .fixext1:  return 1
@@ -180,7 +257,8 @@ public struct UnpackableMessage {
         }
     }
 
-    mutating func readInteger<T: FixedWidthInteger>(as: T.Type) throws -> T {
+    private mutating func readInteger<T: FixedWidthInteger>(as: T.Type) throws
+    -> T {
         let size = MemoryLayout<T>.size
         let bytes = try self.readBytes(size: UInt(size))
         var bigEndian = T()
@@ -192,7 +270,7 @@ public struct UnpackableMessage {
         return T(bigEndian: bigEndian)
     }
 
-    mutating func readBytes(size: UInt) throws -> ArraySlice<UInt8> {
+    private mutating func readBytes(size: UInt) throws -> ArraySlice<UInt8> {
         guard size <= self.slice.count else {
             throw MessagePackError.unexpectedEndOfMessage
         }

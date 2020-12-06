@@ -1,5 +1,3 @@
-import Foundation // Provides String.init(bytes:encoding:)
-
 public protocol MessagePackCompatible {
     init(unpackFrom: inout UnpackableMessage) throws
     func pack(to: inout PackableMessage) throws
@@ -26,12 +24,7 @@ where Wrapped: MessagePackCompatible {
 
 extension Bool: MessagePackCompatible {
     public init(unpackFrom message: inout UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        switch formatByte.format {
-        case .`false`: self = false
-        case .`true`:  self = true
-        default:       throw MessagePackError.incompatibleType
-        }
+        self = try message.unpackBool()
     }
 
     public func pack(to message: inout PackableMessage) {
@@ -41,15 +34,7 @@ extension Bool: MessagePackCompatible {
 
 extension Double: MessagePackCompatible {
     public init(unpackFrom message: inout UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        switch formatByte.format {
-        case .float32:
-            let bitPattern = try message.readInteger(as: UInt32.self)
-            self.init(Float(bitPattern: bitPattern))
-        case .float64:
-            self.init(bitPattern: try message.readInteger(as: UInt64.self))
-        default: throw MessagePackError.incompatibleType
-        }
+        self = try message.unpackDouble()
     }
 
     public func pack(to message: inout PackableMessage) {
@@ -59,11 +44,7 @@ extension Double: MessagePackCompatible {
 
 extension Float: MessagePackCompatible {
     public init(unpackFrom message: inout UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        guard formatByte.format == .float32 else {
-            throw MessagePackError.incompatibleType
-        }
-        self.init(bitPattern: try message.readInteger(as: UInt32.self))
+        self = try message.unpackFloat()
     }
 
     public func pack(to message: inout PackableMessage) {
@@ -85,31 +66,7 @@ extension UInt64: MessagePackCompatible { }
 
 extension MessagePackCompatible where Self: FixedWidthInteger {
     public init(unpackFrom message: inout UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        let result: Self?
-        switch formatByte.format { // TODO: Make this less repetitive?
-        case .uint8:
-            result = Self(exactly: try message.readInteger(as: UInt8.self))
-        case .uint16:
-            result = Self(exactly: try message.readInteger(as: UInt16.self))
-        case .uint32:
-            result = Self(exactly: try message.readInteger(as: UInt32.self))
-        case .uint64:
-            result = Self(exactly: try message.readInteger(as: UInt64.self))
-        case .int8:
-            result = Self(exactly: try message.readInteger(as: Int8.self))
-        case .int16:
-            result = Self(exactly: try message.readInteger(as: Int16.self))
-        case .int32:
-            result = Self(exactly: try message.readInteger(as: Int32.self))
-        case .int64:
-            result = Self(exactly: try message.readInteger(as: Int64.self))
-        case .positiveFixint, .negativeFixint:
-            result = Self(exactly: formatByte.value)
-        default: throw MessagePackError.incompatibleType
-        }
-        if result == nil { throw MessagePackError.incompatibleType }
-        self.init(result!)
+        self = try message.unpackInteger()
     }
 
     public func pack(to message: inout PackableMessage) {
@@ -144,16 +101,7 @@ extension MessagePackCompatible where Self: FixedWidthInteger {
 
 extension String: MessagePackCompatible {
     public init(unpackFrom message: inout UnpackableMessage) throws {
-        let formatByte = try message.readFormatByte()
-        guard MessagePackType(formatByte) == .string else {
-            throw MessagePackError.incompatibleType
-        }
-        let length = try message.readLength(formatByte)
-        let bytes = try message.readBytes(size: length)
-        guard let string = String(bytes: bytes, encoding: .utf8) else {
-            throw MessagePackError.invalidUtf8String
-        }
-        self = string
+        self = try message.unpackString()
     }
 
     public func pack(to message: inout PackableMessage) throws {
