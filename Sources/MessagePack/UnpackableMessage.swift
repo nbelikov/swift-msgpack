@@ -1,11 +1,5 @@
 public struct UnpackableMessage {
-    private final class Storage {
-        var slice: ArraySlice<UInt8>
-
-        init(slice: ArraySlice<UInt8>) { self.slice = slice }
-    }
-
-    private let storage: Storage
+    private var slice: ArraySlice<UInt8>
     // See comment for PackableMessage.count
     private var remainingCount: UInt?
     // This property should be directly accessed only by self.readFormatByte()
@@ -17,13 +11,13 @@ public struct UnpackableMessage {
     }
 
     public init(from slice: ArraySlice<UInt8>) {
-        self.storage = Storage(slice: slice)
+        self.slice = slice
     }
 
     private init(
         parent message: inout UnpackableMessage, remainingCount: UInt
     ) {
-        self.storage = message.storage
+        self.slice = message.slice
         self.remainingCount = remainingCount
     }
 
@@ -76,6 +70,7 @@ public struct UnpackableMessage {
             message.remainingCount == 0,
             "\(message.remainingCount!) elements of an array were left " +
             "unpacked")
+        self.slice = message.slice
         return result
     }
 
@@ -107,6 +102,7 @@ public struct UnpackableMessage {
             message.remainingCount == 0,
             "\(message.remainingCount! / 2) elements of a map were left " +
             "unpacked")
+        self.slice = message.slice
         return result
     }
 
@@ -134,7 +130,7 @@ public struct UnpackableMessage {
         return formatByte
     }
 
-    public var isEmpty: Bool { self.storage.slice.count == 0 }
+    public var isEmpty: Bool { self.slice.count == 0 }
 
     private mutating func unpackAnyInteger() throws -> Any {
         let formatByte = try self.peekFormatByte()
@@ -197,14 +193,13 @@ public struct UnpackableMessage {
     }
 
     mutating func readBytes(size: UInt) throws -> ArraySlice<UInt8> {
-        guard size <= self.storage.slice.count else {
+        guard size <= self.slice.count else {
             throw MessagePackError.unexpectedEndOfMessage
         }
         // The following conversion is safe even on 32-bit hosts thanks to the
         // check above.
-        let result = self.storage.slice.prefix(Int(size))
-        self.storage.slice = self.storage.slice.suffix(
-            self.storage.slice.count - Int(size))
+        let result = self.slice.prefix(Int(size))
+        self.slice = self.slice.dropFirst(Int(size))
         return result
     }
 }
