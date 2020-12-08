@@ -6,8 +6,9 @@ public protocol MessagePackCompatible {
 extension Optional: MessagePackCompatible
 where Wrapped: MessagePackCompatible {
     public init(unpackFrom message: inout UnpackableMessage) throws {
-        if try message.peekFormatByte().format == .`nil` {
-            _ = try message.readFormatByte()
+        let type = try message.nextValueType()
+        if type == .`nil` {
+            try message.unpackNil()
             self = .none
         } else {
             self = .some(try message.unpack())

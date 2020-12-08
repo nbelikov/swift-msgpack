@@ -4,9 +4,6 @@ public struct UnpackableMessage {
     private var slice: ArraySlice<UInt8>
     // See comment for PackableMessage.count
     private var remainingCount: UInt?
-    // This property should be directly accessed only by self.readFormatByte()
-    // and self.peekFormatByte()
-    private var _formatByte: FormatByte?
 
     public init(from bytes: [UInt8]) {
         self.init(from: bytes[bytes.startIndex ..< bytes.endIndex])
@@ -16,10 +13,8 @@ public struct UnpackableMessage {
         self.slice = slice
     }
 
-    private init(
-        parent message: inout UnpackableMessage, remainingCount: UInt
-    ) {
-        self.slice = message.slice
+    private init(slice: ArraySlice<UInt8>, remainingCount: UInt) {
+        self.slice = slice
         self.remainingCount = remainingCount
     }
 
@@ -27,13 +22,13 @@ public struct UnpackableMessage {
     // user input into exhausting stack memory by recursively nesting an array
     // or a map deep enough.
     public mutating func unpackAny() throws -> Any? {
-        let type = MessagePackType(try self.peekFormatByte())
+        let type = try self.nextValueType()
         switch type {
         case .integer: return try self.unpackAnyInteger()
-        case .`nil`:   return nil
-        case .bool:    return try self.unpack() as Bool
-        case .float:   return try self.unpack() as Double
-        case .string:  return try self.unpack() as String
+        case .`nil`:   return try self.unpackNil()
+        case .bool:    return try self.unpackBool()
+        case .float:   return try self.unpackDouble()
+        case .string:  return try self.unpackString()
         case .binary:  return try self.unpackBinary()
         case .array:   return try self.unpackAnyArray()
         case .map:     return try self.unpackAnyMap()
@@ -45,86 +40,112 @@ public struct UnpackableMessage {
         try T(unpackFrom: &self)
     }
 
+    public mutating func unpackNil() throws {
+        try self.unpackSingleValue {
+            let formatByte = try $0.readFormatByte()
+            guard formatByte.format == .`nil` else {
+                throw MessagePackError.incompatibleType
+            }
+        }
+    }
+
     public mutating func unpackBool() throws -> Bool {
-        let formatByte = try self.readFormatByte()
-        switch formatByte.format {
-        case .`false`: return false
-        case .`true`:  return true
-        default:       throw MessagePackError.incompatibleType
+        try self.unpackSingleValue {
+            let formatByte = try $0.readFormatByte()
+            switch formatByte.format {
+            case .`false`: return false
+            case .`true`:  return true
+            default:       throw MessagePackError.incompatibleType
+            }
         }
     }
 
     public mutating func unpackDouble() throws -> Double {
-        let formatByte = try self.readFormatByte()
-        switch formatByte.format {
-        case .float32:
-            // FIXME: Reuse unpackFloat()
-            let bitPattern = try self.readInteger(as: UInt32.self)
-            return Double(Float(bitPattern: bitPattern))
-        case .float64:
-            return Double(bitPattern: try self.readInteger(as: UInt64.self))
-        default: throw MessagePackError.incompatibleType
+        try self.unpackSingleValue {
+            let formatByte = try $0.readFormatByte()
+            switch formatByte.format {
+            case .float32:
+                // FIXME: Reuse unpackFloat()
+                let bitPattern = try $0.readInteger(as: UInt32.self)
+                return Double(Float(bitPattern: bitPattern))
+            case .float64:
+                let bitPattern = try $0.readInteger(as: UInt64.self)
+                return Double(bitPattern: bitPattern)
+            default:
+                throw MessagePackError.incompatibleType
+            }
         }
     }
 
     public mutating func unpackFloat() throws -> Float {
-        let formatByte = try self.readFormatByte()
-        guard formatByte.format == .float32 else {
-            throw MessagePackError.incompatibleType
+        try self.unpackSingleValue {
+            let formatByte = try $0.readFormatByte()
+            switch formatByte.format {
+            case .float32:
+                let bitPattern = try $0.readInteger(as: UInt32.self)
+                return Float(bitPattern: bitPattern)
+            default:
+                throw MessagePackError.incompatibleType
+            }
         }
-        return Float(bitPattern: try self.readInteger(as: UInt32.self))
     }
 
     public mutating func unpackInteger<T: FixedWidthInteger>() throws -> T {
-        let formatByte = try self.readFormatByte()
-        let result: T?
-        switch formatByte.format { // TODO: Make this less repetitive?
-        case .uint8:
-            result = T(exactly: try self.readInteger(as: UInt8.self))
-        case .uint16:
-            result = T(exactly: try self.readInteger(as: UInt16.self))
-        case .uint32:
-            result = T(exactly: try self.readInteger(as: UInt32.self))
-        case .uint64:
-            result = T(exactly: try self.readInteger(as: UInt64.self))
-        case .int8:
-            result = T(exactly: try self.readInteger(as: Int8.self))
-        case .int16:
-            result = T(exactly: try self.readInteger(as: Int16.self))
-        case .int32:
-            result = T(exactly: try self.readInteger(as: Int32.self))
-        case .int64:
-            result = T(exactly: try self.readInteger(as: Int64.self))
-        case .positiveFixint, .negativeFixint:
-            result = T(exactly: formatByte.value)
-        default: throw MessagePackError.incompatibleType
+        try self.unpackSingleValue {
+            let formatByte = try $0.readFormatByte()
+            let result: T?
+            switch formatByte.format { // TODO: Make this less repetitive?
+            case .uint8:
+                result = T(exactly: try $0.readInteger(as: UInt8.self))
+            case .uint16:
+                result = T(exactly: try $0.readInteger(as: UInt16.self))
+            case .uint32:
+                result = T(exactly: try $0.readInteger(as: UInt32.self))
+            case .uint64:
+                result = T(exactly: try $0.readInteger(as: UInt64.self))
+            case .int8:
+                result = T(exactly: try $0.readInteger(as: Int8.self))
+            case .int16:
+                result = T(exactly: try $0.readInteger(as: Int16.self))
+            case .int32:
+                result = T(exactly: try $0.readInteger(as: Int32.self))
+            case .int64:
+                result = T(exactly: try $0.readInteger(as: Int64.self))
+            case .positiveFixint, .negativeFixint:
+                result = T(exactly: formatByte.value)
+            default: throw MessagePackError.incompatibleType
+            }
+            if result == nil { throw MessagePackError.incompatibleType }
+            return result!
         }
-        if result == nil { throw MessagePackError.incompatibleType }
-        return result!
     }
 
     public mutating func unpackString() throws -> String {
-        let formatByte = try self.readFormatByte()
-        guard MessagePackType(formatByte) == .string else {
-            throw MessagePackError.incompatibleType
+        try self.unpackSingleValue {
+            let formatByte = try $0.readFormatByte()
+            guard MessagePackType(formatByte) == .string else {
+                throw MessagePackError.incompatibleType
+            }
+            let length = try $0.readLength(formatByte)
+            let bytes = try $0.readBytes(size: length)
+            guard let string = String(bytes: bytes, encoding: .utf8) else {
+                throw MessagePackError.invalidUtf8String
+            }
+            return string
         }
-        let length = try self.readLength(formatByte)
-        let bytes = try self.readBytes(size: length)
-        guard let string = String(bytes: bytes, encoding: .utf8) else {
-            throw MessagePackError.invalidUtf8String
-        }
-        return string
     }
 
     // TODO: Should this return ArraySlice<UInt8> instead?
     public mutating func unpackBinary() throws -> [UInt8] {
-        let formatByte = try self.readFormatByte()
-        let type = MessagePackType(formatByte)
-        guard type == .binary || type == .string else {
-            throw MessagePackError.incompatibleType
+        try self.unpackSingleValue {
+            let formatByte = try $0.readFormatByte()
+            let type = MessagePackType(formatByte)
+            guard type == .binary || type == .string else {
+                throw MessagePackError.incompatibleType
+            }
+            let length = try $0.readLength(formatByte)
+            return try Array($0.readBytes(size: length))
         }
-        let length = try self.readLength(formatByte)
-        return try Array(self.readBytes(size: length))
     }
 
     // Security consideration: do not reserve capacity for `count` elements
@@ -133,84 +154,107 @@ public struct UnpackableMessage {
     public mutating func unpackArray<R>(
         _ closure: (inout UnpackableMessage, _ count: UInt) throws -> R
     ) throws -> R {
-        let formatByte = try self.readFormatByte()
-        let type = MessagePackType(formatByte)
-        guard type == .array else { throw MessagePackError.incompatibleType }
-        let length = try self.readLength(formatByte)
-        var message = UnpackableMessage( parent: &self, remainingCount: length)
-        let result = try closure(&message, length)
-        precondition(
-            message.remainingCount == 0,
-            "\(message.remainingCount!) elements of an array were left " +
-            "unpacked")
-        self.slice = message.slice
-        return result
+        try self.unpackContainer(
+            type: .array,
+            count: { $0 },
+            closure: closure,
+            check: {
+                precondition(
+                    $0 == 0,
+                    "\($0) elements of an array were left unpacked")
+            }
+        )
     }
 
     // See comment for unpackArray(:)
     public mutating func unpackMap<R>(
         _ closure: (inout UnpackableMessage, _ count: UInt) throws -> R
     ) throws -> R {
-        let formatByte = try self.readFormatByte()
-        let type = MessagePackType(formatByte)
-        guard type == .map else { throw MessagePackError.incompatibleType }
-        let length = try self.readLength(formatByte)
-        // Check for possible overflow on 32-bit hosts.  Since the message's
-        // body length is limited by what can fit inside [UInt8], that is, by
-        // Int.max, if this exception wouldn't be thrown at this point, it is
-        // guaranteed that it would be thrown later.
-        guard length <= UInt.max / 2 else {
-            throw MessagePackError.unexpectedEndOfMessage
-        }
-        var message = UnpackableMessage(
-            parent: &self,
-            remainingCount: length * 2)
-        let result = try closure(&message, length)
-        precondition(
-            message.remainingCount! % 2 == 0,
-            "A key was unpacked while it's paired value wasn't.  " +
-            "\(message.remainingCount! / 2) elements of a map were left " +
-            "unpacked")
-        precondition(
-            message.remainingCount == 0,
-            "\(message.remainingCount! / 2) elements of a map were left " +
-            "unpacked")
-        self.slice = message.slice
-        return result
+        try self.unpackContainer(
+            type: .map,
+            count: { length in
+                // Check for possible overflow on 32-bit hosts.  Since the
+                // message's body length is limited by what can fit inside
+                // [UInt8], that is, by Int.max, if this exception wouldn't be
+                // thrown at this point, it is guaranteed that it would be
+                // thrown later.
+                guard length <= UInt.max / 2 else {
+                    throw MessagePackError.unexpectedEndOfMessage
+                }
+                return length * 2
+            },
+            closure: closure,
+            check: {
+                precondition(
+                    $0 % 2 == 0,
+                    "A key was unpacked while it's paired value wasn't.  " +
+                    "\($0 / 2) elements of a map were left unpacked")
+                precondition(
+                    $0 == 0,
+                    "\($0 / 2) elements of a map were left unpacked")
+            }
+        )
     }
 
-    // FIXME: Cannot be private because used by extension Optional:
-    // MessagePackCompatible.
-    mutating func peekFormatByte() throws -> FormatByte {
-        if self._formatByte == nil {
-            self._formatByte = try self.readFormatByte()
-        }
-        return self._formatByte!
+    public var isEmpty: Bool {
+        self.slice.count == 0 || self.remainingCount == 0
     }
 
-    // FIXME: Cannot be private because used by extension Optional:
-    // MessagePackCompatible.
-    mutating func readFormatByte() throws -> FormatByte {
-        if let formatByte = self._formatByte {
-            self._formatByte = nil
-            return formatByte
+    public func nextValueType() throws -> MessagePackType {
+        var temporary = self
+        return MessagePackType(try temporary.readFormatByte())
+    }
+
+    private mutating func unpackContainer<R>(
+        type: MessagePackType,
+        count: (UInt) throws -> UInt,
+        closure: (inout UnpackableMessage, _ count: UInt) throws -> R,
+        check: (UInt) -> ()
+    ) throws -> R {
+        try self.unpackSingleValue {
+            let formatByte = try $0.readFormatByte()
+            let actualType = MessagePackType(formatByte)
+            guard actualType == type else {
+                throw MessagePackError.incompatibleType
+            }
+            let length = try $0.readLength(formatByte)
+            let remainingCount = try count(length)
+            var subMessage = UnpackableMessage(
+                slice: $0.slice, remainingCount: remainingCount)
+            let result = try closure(&subMessage, length)
+            check(subMessage.remainingCount!)
+            $0.slice = subMessage.slice
+            return result
         }
+    }
+
+    // Allows to revert to previous state if an error is thrown in the middle
+    // of unpacking.
+    private mutating func unpackSingleValue<R>(
+        _ closure: (inout UnpackableMessage) throws -> R
+    ) rethrows -> R {
         precondition(
             self.remainingCount != 0,
             "Attempt to unpack an element beyond the enclosing container's " +
             "boundary")
+        var temporary = self
+        let result = try closure(&temporary)
+        self.slice = temporary.slice
+        if self.remainingCount != nil { self.remainingCount! -= 1 }
+        return result
+    }
+
+    private mutating func readFormatByte() throws -> FormatByte {
         let byte = try self.readInteger(as: UInt8.self)
         guard let formatByte = FormatByte(rawValue: byte) else {
             throw MessagePackError.invalidMessage
         }
-        if self.remainingCount != nil { self.remainingCount! -= 1 }
         return formatByte
     }
 
-    public var isEmpty: Bool { self.slice.count == 0 }
-
     private mutating func unpackAnyInteger() throws -> Any {
-        let formatByte = try self.peekFormatByte()
+        var temporary = self
+        let formatByte = try temporary.readFormatByte()
         if formatByte.format == .uint64 {
             let uint64: UInt64 = try self.unpack()
             // TODO: Why doesn't this work?
