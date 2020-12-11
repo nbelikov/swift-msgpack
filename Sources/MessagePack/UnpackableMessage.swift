@@ -4,6 +4,7 @@ public struct UnpackableMessage {
     private var slice: ArraySlice<UInt8>
     // See comment for PackableMessage.count
     private var remainingCount: UInt?
+    private var chunkIndex: ArraySlice<Int>?
 
     public init(from bytes: [UInt8]) {
         self.init(from: bytes[bytes.startIndex ..< bytes.endIndex])
@@ -196,6 +197,20 @@ public struct UnpackableMessage {
         )
     }
 
+    public mutating func unpackArray() -> ArrayView {
+        fatalError() //FIXME
+    }
+
+    public mutating func unpackMap<K>(keyType: K) -> MapView<K> {
+        fatalError() //FIXME
+    }
+
+    public mutating func discardNext() throws {
+        var temporary = self
+        let formatByte = try temporary.readFormatByte()
+
+    }
+
     public var isEmpty: Bool {
         self.slice.count == 0 || self.remainingCount == 0
     }
@@ -203,6 +218,24 @@ public struct UnpackableMessage {
     public func nextValueType() throws -> MessagePackType {
         var temporary = self
         return MessagePackType(try temporary.readFormatByte())
+    }
+
+    private mutating func makeIndex() throws {
+        var temporary = self
+        var index: [Int] = []
+        var count: UInt = 1
+        while count != 0 {
+            index.append(temporary.slice.startIndex)
+            let formatByte = try temporary.readFormatByte()
+            let type = MessagePackType(formatByte)
+            if type == .array || type == .map {
+                count += try temporary.readLength(formatByte)
+            } else {
+                try temporary.discardNext()
+            }
+            count -= 1
+        }
+        self.chunkIndex = index[0 ..< index.count]
     }
 
     private mutating func unpackContainer<R>(
@@ -228,20 +261,38 @@ public struct UnpackableMessage {
         }
     }
 
-    // Allows to revert to previous state if an error is thrown in the middle
-    // of unpacking.
     private mutating func unpackSingleValue<R>(
         _ closure: (inout UnpackableMessage) throws -> R
     ) rethrows -> R {
-        precondition(
-            self.remainingCount != 0,
-            "Attempt to unpack an element beyond the enclosing container's " +
-            "boundary")
+        try self.withTemporary { temporary in
+            precondition(
+                temporary.remainingCount != 0,
+                "Attempt to unpack an element beyond the enclosing " +
+                "container's boundary")
+            let result = try closure(&temporary)
+            if temporary.remainingCount != nil {
+                temporary.remainingCount! -= 1
+            }
+            if temporary.chunkIndex != nil {
+                temporary.chunkIndex = temporary.chunkIndex!.dropFirst()
+            }
+            return result
+        }
+    }
+
+    // Allows to revert to previous state if an error is thrown in the middle
+    // of unpacking.
+    private mutating func withTemporary<R>(
+        _ closure: (inout UnpackableMessage) throws -> R
+    ) rethrows -> R {
         var temporary = self
         let result = try closure(&temporary)
-        self.slice = temporary.slice
-        if self.remainingCount != nil { self.remainingCount! -= 1 }
+        self = temporary
         return result
+    }
+
+    private mutating func buildIndex() throws {
+
     }
 
     private mutating func readFormatByte() throws -> FormatByte {
@@ -323,5 +374,17 @@ public struct UnpackableMessage {
         let result = self.slice.prefix(Int(size))
         self.slice = self.slice.dropFirst(Int(size))
         return result
+    }
+
+    public struct ArrayView {
+        public subscript(index: Int) -> UnpackableMessage {
+            fatalError()
+        }
+    }
+
+    public struct MapView<K> {
+        public subscript(index: K) -> UnpackableMessage {
+            fatalError()
+        }
     }
 }
